@@ -1,8 +1,11 @@
 import { BATTLE_COUNT, currentIntent } from '../../game/index.ts'
 import type { GameAction, RunState } from '../../game/index.ts'
 import { CardButton } from '../components/CardButton.tsx'
+import { CardFace } from '../components/CardFace.tsx'
 import { EnemyEmblem } from '../components/EnemyEmblem.tsx'
 import { PileButton } from '../components/PileButton.tsx'
+import { useCombatPresentation } from '../useCombatPresentation.ts'
+import type { CombatFloat } from '../feedback.ts'
 
 export function BattleScreen({
   state,
@@ -11,11 +14,15 @@ export function BattleScreen({
   state: RunState
   onAction: (action: GameAction) => void
 }) {
+  const presentation = useCombatPresentation(state, onAction)
   const enemy = state.enemy
   if (!enemy) return null
   const intent = currentIntent(enemy)
   const recent = state.log.slice(-6)
   const { player } = state
+  const { cue, floats, ghosts } = presentation
+  const enemyFloats = floats.filter((float) => float.target === 'enemy')
+  const playerFloats = floats.filter((float) => float.target === 'player')
 
   return (
     <section
@@ -40,23 +47,33 @@ export function BattleScreen({
 
         <div className="battle-stage">
           <div className="fighters">
-            <article className="fighter fighter-player">
+            <article className={classNames('fighter fighter-player', cue.playerFlash && 'is-hit', cue.energyPulse && 'is-energized')}>
+              <FloatLayer floats={playerFloats} />
               <h2>你</h2>
               <p>生命 {player.hp} / {player.maxHp}</p>
               <LifeMeter hp={player.hp} maxHp={player.maxHp} tone="player" />
-              <p className="armor-line" data-ready={player.block > 0 ? 'true' : 'false'}>
+              <p className={classNames('armor-line', cue.playerBlockPulse && 'is-pulsing')} data-ready={player.block > 0 ? 'true' : 'false'}>
                 护甲 {player.block}
               </p>
               <p>能量 {player.energy} / {player.maxEnergy}</p>
-              <EnergyPips energy={player.energy} maxEnergy={player.maxEnergy} />
+              <EnergyPips energy={player.energy} maxEnergy={player.maxEnergy} energized={cue.energyPulse} />
               <p className="turn-line">回合 {state.turn}</p>
             </article>
-            <article className={`fighter fighter-enemy${enemy.boss ? ' fighter-boss' : ''}`}>
+            <article
+              className={classNames(
+                'fighter fighter-enemy',
+                enemy.boss && 'fighter-boss',
+                cue.enemyFlash && 'is-hit',
+                cue.enemyShake && 'is-shaken',
+                cue.enemyActing && 'is-acting',
+              )}
+            >
+              <FloatLayer floats={enemyFloats} />
               <EnemyEmblem id={enemy.id} boss={enemy.boss} />
               <h2>{enemy.name}</h2>
               <p>生命 {enemy.hp} / {enemy.maxHp}</p>
               <LifeMeter hp={enemy.hp} maxHp={enemy.maxHp} tone="enemy" />
-              <p className="armor-line" data-ready={enemy.block > 0 ? 'true' : 'false'}>
+              <p className={classNames('armor-line', cue.enemyBlockPulse && 'is-pulsing')} data-ready={enemy.block > 0 ? 'true' : 'false'}>
                 护甲 {enemy.block}
               </p>
               <p className={`intent intent-${intent.kind}`}>意图 {intent.label}</p>
@@ -64,6 +81,15 @@ export function BattleScreen({
           </div>
           <div className="battle-log" aria-live="polite">
             {recent.length === 0 ? <p>等待出牌</p> : recent.map((line, index) => <p key={`${index}-${line}`}>{line}</p>)}
+          </div>
+          <div className={classNames('battle-field', ghosts.some((ghost) => ghost.attack) && 'has-trail')} aria-hidden="true">
+            <FieldMark />
+            <span className="attack-trail" />
+            <span className="ember-mote mote-a" />
+            <span className="ember-mote mote-b" />
+            <span className="ember-mote mote-c" />
+            <span className="ember-mote mote-d" />
+            <span className="ember-mote mote-e" />
           </div>
         </div>
 
@@ -80,14 +106,52 @@ export function BattleScreen({
                   key={card.instanceId}
                   card={card}
                   energy={player.energy}
-                  onPlay={(instanceId) => onAction({ type: 'playCard', instanceId })}
+                  onPlay={presentation.playCard}
                 />
               ))}
             </div>
           </div>
         </footer>
       </div>
+      {ghosts.map((ghost) => (
+        <div
+          key={ghost.id}
+          className={ghost.attack ? 'card-ghost card-ghost-attack' : 'card-ghost card-ghost-skill'}
+          style={ghost.style}
+          aria-hidden="true"
+          onAnimationEnd={() => presentation.dismissGhost(ghost.id)}
+        >
+          <CardFace definition={ghost.definition} />
+        </div>
+      ))}
     </section>
+  )
+}
+
+function classNames(...names: Array<string | false>): string {
+  return names.filter(Boolean).join(' ')
+}
+
+function FloatLayer({ floats }: { floats: Array<CombatFloat & { id: string; shift: number }> }) {
+  if (floats.length === 0) return null
+  return (
+    <div className="float-layer" aria-hidden="true">
+      {floats.map((float) => (
+        <span key={float.id} className={`float-number float-${float.kind}`} style={{ ['--shift' as string]: `${float.shift}px` }}>
+          {float.text}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function FieldMark() {
+  return (
+    <svg className="field-mark" viewBox="0 0 160 64" focusable="false">
+      <path d="M80 6 92 28H68Z" fill="currentColor" />
+      <path d="M16 48h128M40 36h80" fill="none" stroke="currentColor" strokeWidth="1" />
+      <path d="M28 48 40 28h16L44 48M132 48 120 28H104l12 20" fill="none" stroke="currentColor" strokeWidth="1" />
+    </svg>
   )
 }
 
@@ -101,10 +165,10 @@ function LifeMeter({ hp, maxHp, tone }: { hp: number; maxHp: number; tone: 'play
   )
 }
 
-function EnergyPips({ energy, maxEnergy }: { energy: number; maxEnergy: number }) {
+function EnergyPips({ energy, maxEnergy, energized }: { energy: number; maxEnergy: number; energized: boolean }) {
   const slots = Math.max(energy, maxEnergy, 1)
   return (
-    <div className="energy-pips" aria-hidden="true">
+    <div className={energized ? 'energy-pips is-energized' : 'energy-pips'} aria-hidden="true">
       {Array.from({ length: slots }, (_, index) => (
         <span key={index} className={index < energy ? 'pip pip-on' : 'pip'} />
       ))}

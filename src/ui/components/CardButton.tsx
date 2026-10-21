@@ -9,7 +9,7 @@ export function CardButton({
 }: {
   card: CardInstance
   energy: number
-  onPlay: (instanceId: string) => void
+  onPlay: (instanceId: string, origin: DOMRect) => void
 }) {
   const definition = getCard(card.definitionId)
   const affordable = definition.cost <= energy
@@ -22,7 +22,7 @@ export function CardButton({
       data-cost={definition.cost}
       disabled={!affordable}
       title={affordable ? definition.description : '能量不足'}
-      onClick={() => onPlay(card.instanceId)}
+      onClick={(event) => onPlay(card.instanceId, event.currentTarget.getBoundingClientRect())}
     >
       <CardFace definition={definition} />
     </button>

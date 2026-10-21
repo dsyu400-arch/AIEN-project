@@ -55,7 +55,8 @@
   min-height: 0;
   overflow: auto;
   display: grid;
-  align-content: start;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: stretch;
   gap: 8px;
   padding-right: 2px;
 }
@@ -67,6 +68,7 @@
 }
 
 .fighter {
+  position: relative;
   padding: 12px 14px 14px;
   background:
     linear-gradient(180deg, rgba(224, 122, 61, 0.07), transparent 32%),
@@ -98,6 +100,7 @@
 }
 
 .emblem {
+  position: relative;
   width: 76px;
   height: 76px;
   margin: 0 auto 6px;
@@ -150,7 +153,7 @@
   height: 100%;
   width: 0;
   background: linear-gradient(90deg, #8a3e22, var(--accent));
-  transition: width 180ms linear;
+  transition: width 280ms ease;
 }
 
 .meter-enemy span {
@@ -678,6 +681,229 @@
   }
 }
 
+.battle-field {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: rgba(224, 193, 122, 0.45);
+  background:
+    radial-gradient(circle at 62% 48%, rgba(224, 122, 61, 0.14), transparent 36%),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 28px,
+      rgba(224, 193, 122, 0.045) 28px,
+      rgba(224, 193, 122, 0.045) 29px
+    );
+}
+
+.field-mark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(280px, 70%);
+  height: auto;
+  transform: translate3d(-50%, -50%, 0);
+  opacity: 0.55;
+}
+
+.attack-trail {
+  position: absolute;
+  left: 12%;
+  top: 46%;
+  width: 42%;
+  height: 2px;
+  opacity: 0;
+  background: linear-gradient(90deg, transparent, var(--accent), rgba(255, 236, 214, 0.2));
+  transform-origin: left center;
+}
+
+.has-trail .attack-trail {
+  animation: trail-shot 300ms ease forwards;
+}
+
+.ember-mote {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.35;
+  animation: mote-rise 3.2s ease-in-out infinite;
+}
+
+.mote-a { left: 18%; bottom: 18%; animation-delay: 0s; }
+.mote-b { left: 36%; bottom: 8%; animation-delay: 0.6s; }
+.mote-c { left: 58%; bottom: 22%; animation-delay: 1.1s; }
+.mote-d { left: 74%; bottom: 10%; animation-delay: 0.3s; }
+.mote-e { left: 86%; bottom: 28%; width: 3px; height: 3px; animation-delay: 1.6s; }
+
+.float-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.float-number {
+  position: absolute;
+  left: calc(50% + var(--shift, 0px));
+  top: 18px;
+  z-index: 3;
+  pointer-events: none;
+  font-family: var(--heading);
+  font-size: 28px;
+  line-height: 1;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.72);
+  animation: float-up 640ms ease forwards;
+}
+
+.float-hurt { color: #ff8d7a; }
+.float-block { color: var(--gold); }
+.float-heal { color: #8dce86; }
+.float-energy { color: var(--accent); }
+
+.fighter-player.is-hit::before,
+.emblem::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fighter-player.is-hit::before {
+  background: transparent;
+  animation: player-flash 280ms ease;
+}
+
+.fighter-enemy.is-hit .emblem::before {
+  animation: emblem-flash 280ms ease;
+}
+
+.fighter-boss.is-hit .emblem::before {
+  animation: emblem-flash-boss 300ms ease;
+}
+
+.fighter-enemy.is-shaken .emblem {
+  animation: emblem-shake 280ms ease;
+}
+
+.fighter-boss.is-shaken .emblem {
+  animation: emblem-shake-boss 300ms ease;
+}
+
+.fighter-enemy.is-acting .emblem {
+  animation: emblem-act 300ms ease;
+}
+
+.armor-line.is-pulsing::before {
+  animation: armor-pop 300ms ease;
+}
+
+.is-energized .pip-on {
+  animation: pip-pulse 300ms ease;
+}
+
+.card-ghost {
+  position: fixed;
+  z-index: 24;
+  margin: 0;
+  pointer-events: none;
+}
+
+.card-ghost .card-face {
+  min-height: 0;
+  height: 100%;
+}
+
+.card-ghost-attack {
+  animation: ghost-attack 300ms ease forwards;
+}
+
+.card-ghost-skill {
+  animation: ghost-skill 280ms ease forwards;
+}
+
+.reward-life {
+  position: relative;
+}
+
+.reward-life .float-number {
+  top: -6px;
+}
+
+@keyframes ghost-attack {
+  to {
+    transform: translate3d(var(--ghost-x), var(--ghost-y), 0) scale(0.62);
+    opacity: 0;
+  }
+}
+
+@keyframes ghost-skill {
+  40% {
+    transform: translate3d(0, -40px, 0) scale(1.04);
+    opacity: 1;
+  }
+  to {
+    transform: translate3d(0, -18px, 0) scale(0.96);
+    opacity: 0;
+  }
+}
+
+@keyframes float-up {
+  to {
+    transform: translate3d(0, -34px, 0);
+    opacity: 0;
+  }
+}
+
+@keyframes trail-shot {
+  0% { opacity: 0; transform: scaleX(0.15); }
+  35% { opacity: 0.9; }
+  100% { opacity: 0; transform: scaleX(1); }
+}
+
+@keyframes mote-rise {
+  0%, 100% { transform: translate3d(0, 0, 0); opacity: 0.15; }
+  50% { transform: translate3d(0, -14px, 0); opacity: 0.55; }
+}
+
+@keyframes player-flash {
+  35% { background: rgba(209, 90, 69, 0.28); }
+}
+
+@keyframes emblem-flash {
+  40% { background: rgba(255, 214, 176, 0.42); }
+}
+
+@keyframes emblem-flash-boss {
+  35% { background: rgba(255, 186, 120, 0.62); }
+}
+
+@keyframes emblem-shake {
+  25% { transform: translate3d(-2px, 0, 0); }
+  75% { transform: translate3d(2px, 0, 0); }
+}
+
+@keyframes emblem-shake-boss {
+  20% { transform: translate3d(-4px, 0, 0); }
+  45% { transform: translate3d(3px, 0, 0); }
+  70% { transform: translate3d(-2px, 0, 0); }
+}
+
+@keyframes emblem-act {
+  40% { transform: translate3d(0, -4px, 0); }
+}
+
+@keyframes armor-pop {
+  40% { transform: scale(1.35); }
+}
+
+@keyframes pip-pulse {
+  40% { transform: scale(1.28); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .meter span,
   .hand .card,
@@ -690,5 +916,25 @@
   .reward-choices .card:hover,
   .reward-choices .card:focus-visible {
     transform: none;
+  }
+
+  .card-ghost,
+  .float-number,
+  .attack-trail,
+  .ember-mote,
+  .fighter-enemy.is-shaken .emblem,
+  .fighter-boss.is-shaken .emblem,
+  .fighter-enemy.is-acting .emblem,
+  .fighter-enemy.is-hit .emblem::before,
+  .fighter-boss.is-hit .emblem::before,
+  .fighter-player.is-hit::before,
+  .armor-line.is-pulsing::before,
+  .is-energized .pip-on,
+  .has-trail .attack-trail {
+    animation: none;
+  }
+
+  .float-number {
+    opacity: 1;
   }
 }
