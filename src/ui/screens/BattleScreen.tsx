@@ -46,30 +46,33 @@ export function BattleScreen({
         </header>
 
         <div className="battle-stage">
-          <div className="fighters">
-            <article className={classNames('fighter fighter-player', cue.playerFlash && 'is-hit', cue.energyPulse && 'is-energized')}>
-              <FloatLayer floats={playerFloats} />
-              <h2>你</h2>
-              <p>生命 {player.hp} / {player.maxHp}</p>
-              <LifeMeter hp={player.hp} maxHp={player.maxHp} tone="player" />
-              <p className={classNames('armor-line', cue.playerBlockPulse && 'is-pulsing')} data-ready={player.block > 0 ? 'true' : 'false'}>
-                护甲 {player.block}
-              </p>
-              <p>能量 {player.energy} / {player.maxEnergy}</p>
-              <EnergyPips energy={player.energy} maxEnergy={player.maxEnergy} energized={cue.energyPulse} />
-              <p className="turn-line">回合 {state.turn}</p>
-            </article>
-            <article
-              className={classNames(
-                'fighter fighter-enemy',
-                enemy.boss && 'fighter-boss',
-                cue.enemyFlash && 'is-hit',
-                cue.enemyShake && 'is-shaken',
-                cue.enemyActing && 'is-acting',
-              )}
-            >
-              <FloatLayer floats={enemyFloats} />
+          <article className={classNames('fighter fighter-player', cue.playerFlash && 'is-hit', cue.energyPulse && 'is-energized')}>
+            <FloatLayer floats={playerFloats} />
+            <h2>你</h2>
+            <p>生命 {player.hp} / {player.maxHp}</p>
+            <LifeMeter hp={player.hp} maxHp={player.maxHp} tone="player" />
+            <p className={classNames('armor-line', cue.playerBlockPulse && 'is-pulsing')} data-ready={player.block > 0 ? 'true' : 'false'}>
+              护甲 {player.block}
+            </p>
+            <p>能量 {player.energy} / {player.maxEnergy}</p>
+            <EnergyPips energy={player.energy} maxEnergy={player.maxEnergy} energized={cue.energyPulse} />
+            <p className="turn-line">回合 {state.turn}</p>
+          </article>
+          <article
+            className={classNames(
+              'fighter fighter-enemy',
+              enemy.boss && 'fighter-boss',
+              cue.enemyFlash && 'is-hit',
+              cue.enemyShake && 'is-shaken',
+              cue.enemyActing && 'is-acting',
+            )}
+          >
+            <FloatLayer floats={enemyFloats} />
+            <div className={classNames('enemy-figure', ghosts.some((ghost) => ghost.attack) && 'has-trail')}>
               <EnemyEmblem id={enemy.id} boss={enemy.boss} />
+              <span className="attack-trail" />
+            </div>
+            <div className="enemy-readout">
               <h2>{enemy.name}</h2>
               <p>生命 {enemy.hp} / {enemy.maxHp}</p>
               <LifeMeter hp={enemy.hp} maxHp={enemy.maxHp} tone="enemy" />
@@ -77,8 +80,8 @@ export function BattleScreen({
                 护甲 {enemy.block}
               </p>
               <p className={`intent intent-${intent.kind}`}>意图 {intent.label}</p>
-            </article>
-          </div>
+            </div>
+          </article>
           <div className="battle-log" aria-live="polite">
             {recent.length === 0 ? <p>等待出牌</p> : recent.map((line, index) => <p key={`${index}-${line}`}>{line}</p>)}
           </div>
@@ -147,10 +150,12 @@ function FloatLayer({ floats }: { floats: Array<CombatFloat & { id: string; shif
 
 function FieldMark() {
   return (
-    <svg className="field-mark" viewBox="0 0 160 64" focusable="false">
-      <path d="M80 6 92 28H68Z" fill="currentColor" />
-      <path d="M16 48h128M40 36h80" fill="none" stroke="currentColor" strokeWidth="1" />
-      <path d="M28 48 40 28h16L44 48M132 48 120 28H104l12 20" fill="none" stroke="currentColor" strokeWidth="1" />
+    <svg className="field-mark" viewBox="0 0 360 160" preserveAspectRatio="xMidYMax meet" focusable="false">
+      <path d="M168 118V42h12v28h10V24h14v46h10v48" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M186 24l8-14 8 14" fill="currentColor" />
+      <path d="M20 132l28-24 22 14 26-20 24 18 30-16 34 16 28-12 36 10 40-8v28H20z" fill="currentColor" opacity="0.35" />
+      <path d="M48 132h36l12 20H58zM250 124h48l16 28h-52z" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M24 148h312" stroke="currentColor" strokeWidth="1" />
     </svg>
   )
 }

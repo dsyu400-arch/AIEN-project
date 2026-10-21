@@ -23,8 +23,10 @@ export function RewardScreen({
 
   return (
     <main className="play-shell reward-screen" data-testid="reward">
-      <p className="eyebrow">第 {state.battleIndex + 1} 场胜利</p>
-      <h1>选择一张牌</h1>
+      <header className="reward-heading">
+        <p className="eyebrow">第 {state.battleIndex + 1} 场胜利</p>
+        <h1>选择一张牌</h1>
+      </header>
       <div className="reward-life">
         <p>
           生命 {state.player.hp} / {state.player.maxHp}

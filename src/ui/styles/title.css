@@ -51,13 +51,24 @@
   letter-spacing: 0.12em;
   padding: 12px 28px;
   cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
 }
 
 .ember-button:hover,
 .ember-button:focus-visible {
   background: rgba(224, 122, 61, 0.28);
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.ember-button:active {
+  transform: translateY(1px);
+}
+
+.ember-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  background: transparent;
 }
 
 @media (max-width: 720px) {
