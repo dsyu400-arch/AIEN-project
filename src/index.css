@@ -1,0 +1,31 @@
+:root {
+  color-scheme: dark;
+  --bg: #14110e;
+  --text: #d9d0c3;
+  --text-h: #f6ead7;
+  --muted: #a39888;
+  --accent: #e07a3d;
+  --sans: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --heading: "KaiTi", "STKaiti", "Songti SC", "Palatino Linotype", serif;
+  font: 18px/1.6 var(--sans);
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+h1,
+h2 {
+  font-family: var(--heading);
+  font-weight: 600;
+  color: var(--text-h);
+}

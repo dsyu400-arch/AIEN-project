@@ -1,0 +1,189 @@
+.run-root {
+  display: contents;
+}
+
+.play-shell {
+  min-height: 100svh;
+  box-sizing: border-box;
+  display: grid;
+  align-content: space-between;
+  gap: 20px;
+  padding: 28px 24px 32px;
+  background:
+    radial-gradient(ellipse at top, rgba(224, 122, 61, 0.14), transparent 52%),
+    var(--bg);
+}
+
+.battle-top,
+.battle-bottom,
+.reward-screen {
+  width: min(1080px, 100%);
+  margin-inline: auto;
+}
+
+.battle-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.battle-heading .ember-button {
+  margin-top: 0;
+}
+
+.fighters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.fighter,
+.card,
+.pile-panel {
+  background: #1c1814;
+  border: 1px solid #3a3128;
+}
+
+.fighter {
+  padding: 16px 18px;
+}
+
+.fighter h2,
+.reward-screen h1 {
+  margin: 0 0 8px;
+}
+
+.fighter p,
+.battle-log p,
+.reward-screen p {
+  margin: 4px 0;
+}
+
+.intent {
+  color: var(--accent);
+}
+
+.meter {
+  height: 8px;
+  margin-top: 10px;
+  background: #2a241e;
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.battle-log {
+  width: min(1080px, 100%);
+  margin-inline: auto;
+  color: var(--muted);
+}
+
+.piles,
+.hand {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.pile-button,
+.card {
+  color: var(--text-h);
+  font: inherit;
+  cursor: pointer;
+}
+
+.pile-button {
+  border: 1px solid #3a3128;
+  background: transparent;
+  padding: 8px 14px;
+}
+
+.card {
+  width: 132px;
+  min-height: 168px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 12px;
+  text-align: left;
+}
+
+.card:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.card:hover:not(:disabled),
+.card:focus-visible,
+.pile-button:hover,
+.pile-button:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.card-cost {
+  color: var(--accent);
+}
+
+.card-kind,
+.card-text {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.card-name {
+  font-family: var(--heading);
+  font-size: 22px;
+}
+
+.battle-bottom {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+}
+
+.reward-screen {
+  justify-items: center;
+  text-align: center;
+}
+
+.pile-layer {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(10, 8, 6, 0.72);
+}
+
+.pile-panel {
+  width: min(420px, 100%);
+  max-height: min(70svh, 560px);
+  overflow: auto;
+  padding: 20px;
+}
+
+.pile-panel h2 {
+  margin: 0 0 12px;
+}
+
+.pile-list {
+  margin: 0 0 16px;
+  padding-left: 1.2em;
+}
+
+@media (max-width: 720px) {
+  .fighters {
+    grid-template-columns: 1fr;
+  }
+
+  .play-shell {
+    padding: 16px;
+  }
+}
