@@ -5,6 +5,12 @@
   --text-h: #f6ead7;
   --muted: #a39888;
   --accent: #e07a3d;
+  --gold: #e0c17a;
+  --ash: #c9beb0;
+  --blood: #d15a45;
+  --panel: #1c1814;
+  --frame: #4a3d32;
+  --card-text: #f0e2d0;
   --sans: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   --heading: "KaiTi", "STKaiti", "Songti SC", "Palatino Linotype", serif;
   font: 18px/1.6 var(--sans);

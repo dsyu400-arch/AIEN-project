@@ -1,5 +1,6 @@
 import { getCard } from '../../game/index.ts'
 import type { GameAction, RunState } from '../../game/index.ts'
+import { CardFace } from '../components/CardFace.tsx'
 
 export function RewardScreen({
   state,
@@ -18,23 +19,20 @@ export function RewardScreen({
         生命 {state.player.hp} / {state.player.maxHp}
         {heal ? `，${heal}` : ''}
       </p>
-      <div className="hand">
+      <div className="reward-choices">
         {state.rewardOptions.map((id) => {
           const definition = getCard(id)
           return (
             <button
               key={id}
               type="button"
-              className="card"
+              className={`card card-${definition.cardType}`}
               data-reward="true"
               data-definition-id={id}
               aria-label={`选择${definition.name}`}
               onClick={() => onAction({ type: 'chooseReward', definitionId: id })}
             >
-              <span className="card-cost">{definition.cost}</span>
-              <span className="card-kind">{definition.cardType === 'attack' ? '攻击' : '技能'}</span>
-              <span className="card-name">{definition.name}</span>
-              <span className="card-text">{definition.description}</span>
+              <CardFace definition={definition} />
             </button>
           )
         })}

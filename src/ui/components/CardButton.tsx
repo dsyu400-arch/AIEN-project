@@ -1,5 +1,6 @@
 import { getCard } from '../../game/index.ts'
 import type { CardInstance } from '../../game/index.ts'
+import { CardFace } from './CardFace.tsx'
 
 export function CardButton({
   card,
@@ -15,7 +16,7 @@ export function CardButton({
   return (
     <button
       type="button"
-      className="card"
+      className={`card card-${definition.cardType}`}
       data-instance-id={card.instanceId}
       data-definition-id={card.definitionId}
       data-cost={definition.cost}
@@ -23,10 +24,7 @@ export function CardButton({
       title={affordable ? definition.description : '能量不足'}
       onClick={() => onPlay(card.instanceId)}
     >
-      <span className="card-cost">{definition.cost}</span>
-      <span className="card-kind">{definition.cardType === 'attack' ? '攻击' : '技能'}</span>
-      <span className="card-name">{definition.name}</span>
-      <span className="card-text">{definition.description}</span>
+      <CardFace definition={definition} />
     </button>
   )
 }
