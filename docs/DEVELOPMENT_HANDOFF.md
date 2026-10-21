@@ -1,8 +1,8 @@
 # 《遗烬之塔》开发交接
 
-交接日期：2026-10-21。仓库就是当前的 `aien-project`，不要新建项目目录，不要修改或删除 `.git`，不要推送 GitHub，除非用户明确要求。
+交接日期：2026-10-22。仓库就是当前的 `aien-project`，不要新建项目目录，不要修改或删除 `.git`，不要推送 GitHub，除非用户明确要求。
 
-阶段 0、1、2、3 已完成，游戏可以从封面打完整场。下一步只做阶段 4，而且要等用户明确要求后再开始。
+阶段 0、1、2、3、4 已完成。阶段 4 只加了浏览器验收和开发环境种子，没有改战斗规则，也没有部署。下一步停在这里，等用户验收。不要自动发布，不要推送。
 
 ## 运行
 
@@ -14,11 +14,14 @@ npm.cmd test
 npm.cmd run test:watch
 npm.cmd run lint
 npm.cmd run build
+npm.cmd run test:e2e
 ```
 
 `npm.cmd run dev` 启动 Vite。5173 被占用时会改用下一个端口，最近一次是 http://localhost:5174/ 。`npm.cmd run build` 会先执行 `tsc -b`，再做生产构建。
 
-技术栈：React 19.3、TypeScript 6、Vite 8.3。规则测试用 Vitest 5.0.5。界面测试用 `@testing-library/react` 和 `happy-dom`。没有 Zustand、路由、动画库或 UI 组件库。Playwright 还没安装。
+`npm.cmd run test:e2e` 使用 Playwright 启动另一套 Vite，固定地址是 http://127.0.0.1:5199/ ，命令带 `--host 127.0.0.1 --port 5199 --strictPort`。`reuseExistingServer` 为 false，所以不会连上 5174 的开发服务器。用例打开 `/?seed=1`。
+
+技术栈：React 19.3、TypeScript 6、Vite 8.3。规则测试用 Vitest 5.0.5。界面测试用 `@testing-library/react` 和 `happy-dom`。浏览器测试用 `@playwright/test` 1.64.1，只安装了 Chromium。没有 Zustand、路由、动画库或 UI 组件库。
 
 `tsconfig.app.json` 打开了 `verbatimModuleSyntax` 和 `erasableSyntaxOnly`。类型用 `import type`，不要用 `enum`。仓库内的 TypeScript 导入带 `.ts` / `.tsx` 后缀。
 
@@ -30,7 +33,9 @@ npm.cmd run build
 
 阶段 2：封面、战斗、三选一、胜负都已接到引擎。React 只保存状态并派发动作，不重复实现规则。
 
-`src/App.tsx` 用 `useReducer`。reducer 只调用 `applyAction(state, action).state`。未传入 `seed` 时用 `Date.now()`。测试渲染 `<App seed={1} />`。
+`src/App.tsx` 用 `useReducer`。reducer 只调用 `applyAction(state, action).state`。未传入 `seed` 时用 `Date.now()`。组件测试渲染 `<App seed={1} />`。
+
+`src/main.tsx` 只在非生产构建读取地址栏 `seed`。生产构建把这个值固定成 `undefined`，正式开局仍是 `Date.now()`，产物里没有地址栏解析。非法或空的 `seed` 会被忽略。
 
 界面动作与引擎一一对应：
 
@@ -45,7 +50,9 @@ npm.cmd run build
 ## 目录
 
 ```text
-src/main.tsx
+src/main.tsx                     # 非生产环境才读取 ?seed=
+src/devSeed.ts                   # 地址栏种子解析
+src/devSeed.test.ts
 src/App.tsx                      # 按 phase 切换画面
 src/index.css                    # 全局暗色变量
 src/game/
@@ -77,7 +84,9 @@ src/ui/
   App.test.tsx                   # 文件顶部声明 happy-dom
 index.html                       # lang=zh-CN，标题遗烬之塔
 public/favicon.svg               # 原创余烬高塔图标
-vite.config.ts                   # 测试包含 game 与 ui
+vite.config.ts                   # 测试包含 game、ui，以及 src/*.test.ts
+playwright.config.ts             # Chromium，独立端口 5199
+e2e/                             # 开局、完整对局、视口、动画
 ```
 
 规则层不能引用 React。界面从 `src/game/index.ts` 读取数据和派发动作。
@@ -141,27 +150,39 @@ vite.config.ts                   # 测试包含 game 与 ui
 
 ## 测试
 
-阶段 3C 结束时执行 `npm.cmd test`：Vitest 5.0.5，10 个文件，56 项全部通过。同一次也通过了 `npm.cmd run lint` 和 `npm.cmd run build`。
+阶段 4 结束时，同一份代码上：
+
+- `npm.cmd test`：Vitest 5.0.5，11 个文件，58 项全部通过。原有 56 项都还在，新增 2 项只检查地址栏种子。
+- `npm.cmd run lint` 通过。
+- `npm.cmd run build` 通过。生产包渲染 `<App seed={undefined}>`，开局表达式仍是 `Date.now()`。
+- `npm.cmd run test:e2e`：Chromium 22 项全部通过。
+
+阶段 3C 当时是 10 个文件、56 项 Vitest，外加 lint 和 build。那些规则测试和界面测试都保留着。
 
 规则测试在 `src/game`，环境是 `node`：`smoke.test.ts`、`rng.test.ts`、`cards.test.ts`、`enemies.test.ts`、`combat.test.ts`、`run.test.ts`、`adventure.test.ts`。
 
 界面测试在 `src/ui`，文件第一行指定 `happy-dom`：`App.test.tsx`、`battle-layout.test.tsx`、`feedback.test.tsx`。它们覆盖从封面开始、出牌、结束回合、查看牌堆、种子 1 的三场战斗、领奖、通关和重新开始，以及手牌行数、奖励卡面、真实伤害飘字、残影清理和 StrictMode 不重复飘字。
 
-`README.md` 仍写着测试只覆盖 `src/game`。实际 `vite.config.ts` 也包含 `src/ui/**/*.test.tsx`。
+浏览器测试在 `e2e/`：开局数值和出牌、结束回合、抽牌堆、种子 1 的三场真实点击通关、领奖后生命不变、重新开始；五个视口的可操作性；连点不重复结算、出牌动画不挡按钮、切页后不留残影，以及 `prefers-reduced-motion` 下打完整场。
+
+`README.md` 已写明当前玩法、单人单机、无存档，以及 Vitest、ESLint、生产构建和 Playwright 命令。
 
 ## 尚未完成
 
-阶段 4：再安装 Playwright。用例放在 `e2e/`，至少覆盖开始游戏、出牌、结束回合、领取奖励、重新开始。选择器用按钮名、标题和卡牌名。使用固定种子。不要在用户要求之前安装或开始。
+阶段 4 已验收。v0.1 的说明整理已完成，等用户验收。不要发布网站，不要推送 GitHub。
 
 第一版明确不做：地图、遗物、药水、商店、事件、多敌人、虚弱或易伤、存档、音效。
 
 ## 已知情况
 
-- 1280×720、1366×768、1920×1080 和 768×1024 上，五张手牌在同一行，页面不滚动，结束回合留在视口内。390×844 上手牌可以横向滚动，敌人立绘不会挡住结束回合。
+- 1280×720、1366×768、1920×1080 和 768×1024 上，五张手牌在同一行，页面不横向溢出，结束回合留在视口内。390×844 上手牌可以在牌区内横向滚动，五张都能点到，敌人立绘不会挡住结束回合。这五个视口都由 Playwright 实际点过战斗和三选一。
+- 开发服务器端口取决于 5173 是否被占用。浏览器测试固定使用 5199，不复用开发服务器。
+- 非生产环境可以打开 `/?seed=1`。生产环境不读这个参数。
+- 发布前整理只更新了说明和忽略规则，没有改规则、数值或界面。
 - 致命一击会立刻离开战斗页，最后一下飘字不留在下一屏。
 - 能量飘字是净变化。费用 1、效果加 2 的牌显示 `+1`。
 - 多段攻击显示一次总生命变化，不拆成逐段数字。
 - 战斗记录只显示最近 6 条。
 - 重新开始沿用当前种子。要换一局，需要刷新页面。
 - 没有失败原因提示。非法点击会被引擎忽略。
-- 开发服务器端口取决于 5173 是否被占用。
+- 阶段 4 没有改 `src/game`，也没有发现需要修补的界面缺陷。

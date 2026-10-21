@@ -1,16 +1,43 @@
 # 遗烬之塔
 
-原创单人 Roguelike 卡牌构筑网页游戏。技术栈为 React、TypeScript 与 Vite，界面语言为简体中文。
+在浏览器中进行的原创单人卡牌游戏。界面为简体中文，使用 React、TypeScript 和 Vite。
 
-第一版目标：50 点生命、每回合 3 点能量、每回合抽取 5 张牌，使用 12 张原创卡牌进行三场连续战斗。前两场胜利后回复 8 点生命（不超过 50）并三选一获得新牌，第三场为 Boss。
+从封面开始一局，连续进行三场战斗。每场只有一名敌人，出牌、防御和结束回合都在同一个页面里完成。
+
+## 当前内容
+
+- 生命 50。每回合能量 3，抽 5 张牌，手牌最多 10 张。没用完的能量不会留到下回合。
+- 开局牌组 10 张：余烬斩 ×4、灰盾 ×4、烬矛突刺 ×1、回焰 ×1。游戏共有 12 张原创牌，战斗胜利后可以把新牌加入牌组。
+- 三场敌人依次是灰卫、烬狼和 Boss 塔主·残焰。敌人的下一步行动会显示在意图里。
+- 可以打出攻击、护甲、抽牌和能量牌。能量不足的牌不能使用。结束回合后，手牌进入弃牌堆，敌人执行当前意图。
+- 可以打开抽牌堆、弃牌堆和消耗堆查看里面的牌。
+- 前两场胜利后回复 8 点生命，但不会超过 50，然后从三张牌里选一张。Boss 胜利后不再回复，直接进入通关页。生命归零则本局失败。
+- 通关或失败后可以重新开始。重新开始沿用这一局的随机种子；要换一局，刷新页面。
+
+当前没有地图、遗物、药水、商店、事件、多敌人、虚弱或易伤，也没有音效。
+
+## 单人单机
+
+当前只提供单人单机模式。没有账号、联机，也没有存档系统。进度只存在于这次打开的页面中，刷新或关闭页面后不会保留。
 
 ## 命令
 
+系统是 Windows PowerShell。`npm.ps1` 会被执行策略拦住，请使用 `npm.cmd`。
+
 ```bash
-npm run dev
-npm test
-npm run test:watch
-npm run build
+npm.cmd run dev
+npm.cmd test
+npm.cmd run test:watch
+npm.cmd run lint
+npm.cmd run build
+npm.cmd run preview
+npm.cmd run test:e2e
 ```
 
-`npm run dev` 启动本地预览。`npm test` 运行一次 `src/game` 中的 Vitest 规则测试。`npm run test:watch` 在规则改动后自动重跑测试。`npm run build` 会先做类型检查，再构建生产包。
+- `npm.cmd run dev` 启动本地开发服务器。5173 被占用时会改用下一个端口。
+- `npm.cmd test` 运行全部 Vitest 测试，包括战斗规则、界面和开发环境种子。
+- `npm.cmd run test:watch` 在文件变化后重复运行 Vitest。
+- `npm.cmd run lint` 运行 ESLint。
+- `npm.cmd run build` 先用 `tsc -b` 做类型检查，再生成生产构建。生产环境不读取地址栏种子，每局仍按打开页面的时间决定随机结果。
+- `npm.cmd run preview` 在本地预览生产构建。
+- `npm.cmd run test:e2e` 运行 Playwright。它会单独启动 Vite，地址固定为 http://127.0.0.1:5199/ ，不会占用开发服务器。首次在新环境运行前，先执行 `npx.cmd playwright install chromium`。

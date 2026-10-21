@@ -5,6 +5,6 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'node',
-    include: ['src/game/**/*.test.ts', 'src/ui/**/*.test.tsx'],
+    include: ['src/game/**/*.test.ts', 'src/ui/**/*.test.tsx', 'src/*.test.ts'],
   },
 })
