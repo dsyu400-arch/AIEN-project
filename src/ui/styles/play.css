@@ -227,6 +227,63 @@
   justify-content: center;
 }
 
+.status-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fighter-enemy .status-list {
+  justify-content: center;
+}
+
+.status-chip {
+  max-width: 100%;
+}
+
+.status-chip button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--frame);
+  border-radius: 999px;
+  background: #241c16;
+  color: var(--ash);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.status-buff button {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.status-debuff button {
+  border-color: var(--blood);
+  color: #f0b2a6;
+}
+
+.status-chip button:hover,
+.status-chip button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.status-detail {
+  margin: 4px 0 0;
+  max-width: 18em;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .armor-line::before {
   content: "";
   width: 16px;

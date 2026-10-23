@@ -44,6 +44,7 @@ export function createEnemy(battleIndex: number): Enemy {
     hp: encounter.maxHp,
     maxHp: encounter.maxHp,
     block: 0,
+    statuses: [],
     pattern: encounter.pattern.map((intent) => ({ ...intent })),
     patternIndex: 0,
   }

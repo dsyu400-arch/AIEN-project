@@ -4,6 +4,7 @@ import { CardButton } from '../components/CardButton.tsx'
 import { CardFace } from '../components/CardFace.tsx'
 import { EnemyEmblem } from '../components/EnemyEmblem.tsx'
 import { PileButton } from '../components/PileButton.tsx'
+import { StatusList } from '../components/StatusList.tsx'
 import { useCombatPresentation } from '../useCombatPresentation.ts'
 import type { CombatFloat } from '../feedback.ts'
 
@@ -54,6 +55,7 @@ export function BattleScreen({
             <p className={classNames('armor-line', cue.playerBlockPulse && 'is-pulsing')} data-ready={player.block > 0 ? 'true' : 'false'}>
               护甲 {player.block}
             </p>
+            <StatusList label="你的状态" statuses={player.statuses} />
             <p>能量 {player.energy} / {player.maxEnergy}</p>
             <EnergyPips energy={player.energy} maxEnergy={player.maxEnergy} energized={cue.energyPulse} />
             <p className="turn-line">回合 {state.turn}</p>
@@ -79,6 +81,7 @@ export function BattleScreen({
               <p className={classNames('armor-line', cue.enemyBlockPulse && 'is-pulsing')} data-ready={enemy.block > 0 ? 'true' : 'false'}>
                 护甲 {enemy.block}
               </p>
+              <StatusList label="敌人状态" statuses={enemy.statuses} />
               <p className={`intent intent-${intent.kind}`}>意图 {intent.label}</p>
             </div>
           </article>

@@ -1,3 +1,8 @@
+/**
+ * 洗牌、奖励和战斗内抽牌只用这一条序列。
+ * 阶段 C 的命中判定会从同一开局种子另派生一条序列，不推进这里的 rngState。
+ * 阶段 A 不读取、不推进第二条序列。
+ */
 export function nextRng(rngState: number): { state: number; value: number } {
   const state = (rngState + 0x6d2b79f5) >>> 0
   let mixed = Math.imul(state ^ (state >>> 15), state | 1)

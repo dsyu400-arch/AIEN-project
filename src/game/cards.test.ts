@@ -43,6 +43,12 @@ describe('卡牌定义', () => {
     expect(new Set(deck.map((card) => card.instanceId)).size).toBe(10)
   })
 
+  it('正式卡池没有状态效果', () => {
+    for (const id of CARD_IDS) {
+      expect(CARD_DEFINITIONS[id].effects.some((effect) => effect.type === 'applyStatus')).toBe(false)
+    }
+  })
+
   it('灰烬连斩是两次 4 点伤害，回焰会消耗', () => {
     expect(CARD_DEFINITIONS.ashFlurry.effects).toEqual([{ type: 'damage', amount: 4, times: 2 }])
     expect(CARD_DEFINITIONS.heartBurn.effects).toEqual([

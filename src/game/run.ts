@@ -1,6 +1,7 @@
 import { CARD_IDS, createStarterDeck } from './cards.ts'
 import { endTurn, playCard, startBattle, startPlayerTurn } from './combat.ts'
 import { ENERGY_PER_TURN, PLAYER_MAX_HP, VICTORY_HEAL } from './constants.ts'
+import { appendEvents } from './events.ts'
 import { createEnemy } from './enemies.ts'
 import { shuffle } from './rng.ts'
 import type { ActionResult, CardId, GameAction, RunState } from './types.ts'
@@ -24,6 +25,7 @@ export function createRun(seed: number): RunState {
       hp: PLAYER_MAX_HP,
       maxHp: PLAYER_MAX_HP,
       block: 0,
+      statuses: [],
       energy: ENERGY_PER_TURN,
       maxEnergy: ENERGY_PER_TURN,
     },
@@ -35,49 +37,59 @@ export function createRun(seed: number): RunState {
     exhaustPile: [],
     rewardOptions: [],
     turn: 0,
+    eventSeq: 1,
+    events: [],
     log: [],
   }
 }
 
 function markDefeat(state: RunState): RunState {
-  return {
-    ...state,
-    phase: 'defeat',
-    player: { ...state.player, hp: 0 },
-    log: [...state.log, '你倒下了'],
-  }
+  return appendEvents(
+    {
+      ...state,
+      phase: 'defeat',
+      player: { ...state.player, hp: 0, statuses: [] },
+    },
+    [{ type: 'defeated', target: { side: 'player' } }],
+  )
 }
 
 function finishBattle(state: RunState): RunState {
   if (state.enemy?.boss) {
-    return {
-      ...state,
-      phase: 'victory',
-      rewardOptions: [],
-      log: [...state.log, '你登上了塔顶'],
-    }
+    return appendEvents(
+      {
+        ...state,
+        phase: 'victory',
+        rewardOptions: [],
+        player: { ...state.player, statuses: [] },
+      },
+      [{ type: 'victory' }],
+    )
   }
 
   const healedHp = Math.min(state.player.maxHp, state.player.hp + VICTORY_HEAL)
   const rewards = shuffle([...CARD_IDS], state.rngState)
-  return {
-    ...state,
-    phase: 'reward',
-    rngState: rewards.rngState,
-    rewardOptions: rewards.items.slice(0, 3),
-    player: {
-      ...state.player,
-      hp: healedHp,
-      block: 0,
-      energy: 0,
+  return appendEvents(
+    {
+      ...state,
+      phase: 'reward',
+      rngState: rewards.rngState,
+      rewardOptions: rewards.items.slice(0, 3),
+      player: {
+        ...state.player,
+        hp: healedHp,
+        block: 0,
+        energy: 0,
+        statuses: [],
+      },
+      enemy: null,
+      drawPile: [],
+      hand: [],
+      discardPile: [],
+      exhaustPile: [],
     },
-    enemy: null,
-    drawPile: [],
-    hand: [],
-    discardPile: [],
-    exhaustPile: [],
-    log: [...state.log, `回复 ${healedHp - state.player.hp} 点生命`],
-  }
+    [{ type: 'healed', amount: healedHp - state.player.hp }],
+  )
 }
 
 function settleCard(state: RunState): RunState {
@@ -88,7 +100,10 @@ function settleCard(state: RunState): RunState {
 
 function settleTurn(state: RunState): RunState {
   if (state.player.hp <= 0) return markDefeat(state)
-  return startPlayerTurn(state)
+  if (state.enemy && state.enemy.hp <= 0) return finishBattle(state)
+  const started = startPlayerTurn(state)
+  if (started.player.hp <= 0) return markDefeat(started)
+  return started
 }
 
 function startRun(state: RunState): ActionResult {

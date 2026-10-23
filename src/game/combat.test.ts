@@ -291,6 +291,83 @@ describe('回合', () => {
     expect(next.state.player.hp).toBe(36)
   })
 
+  it('出牌写入递增事件，但不改变原来的随机数和伤害', () => {
+    const state = prepare(begin(), {
+      hand: [card('emberSpear', 'spear'), card('emberSlash', 'slash')],
+      energy: 3,
+      enemyHp: 30,
+    })
+    const first = play(state, 'spear')
+    const second = play(first, 'slash')
+    expect(second.enemy?.hp).toBe(21)
+    expect(second.rngState).toBe(state.rngState)
+    expect(second.player.statuses).toEqual([])
+    expect(second.enemy?.statuses).toEqual([])
+    expect(second.log).toEqual([
+      '打出烬矛突刺',
+      '烬矛突刺造成 3 点伤害，共 1 次',
+      '打出余烬斩',
+      '余烬斩造成 6 点伤害，共 1 次',
+    ])
+    expect(second.events.map((event) => event.id)).toEqual([1, 2, 3, 4, 5, 6])
+    expect(second.events.filter((event) => event.type === 'damageDealt')).toHaveLength(2)
+  })
+
+  it('灰烬连斩的两段伤害分别记录护甲吸收', () => {
+    const state = prepare(begin(), {
+      hand: [card('ashFlurry', 'flurry')],
+      energy: 1,
+      enemyHp: 20,
+      enemyBlock: 5,
+    })
+    const next = play(state, 'flurry')
+    const hits = next.events.filter((event) => event.type === 'damageDealt')
+    expect(hits).toEqual([
+      expect.objectContaining({ hitIndex: 0, blocked: 4, hpLoss: 0 }),
+      expect.objectContaining({ hitIndex: 1, blocked: 1, hpLoss: 3 }),
+    ])
+    expect(next.log).toEqual(['打出灰烬连斩', '灰烬连斩造成 4 点伤害，共 2 次'])
+  })
+
+  it('玩家身上的易伤会提高敌人这次攻击，并在行动后移除', () => {
+    const state = prepare(begin(), {
+      playerHp: 50,
+      playerBlock: 0,
+      playerStatuses: [{ id: 'vulnerable', amount: 1, deferred: 0 }],
+    })
+    const next = applyAction(state, { type: 'endTurn' })
+    expect(next.ok).toBe(true)
+    if (!next.ok) return
+    expect(next.state.player.hp).toBe(38)
+    expect(next.state.player.statuses).toEqual([])
+    expect(next.state.log).toEqual(['灰卫：攻击 8'])
+    expect(next.state.events.some((event) => event.type === 'statusExpired')).toBe(true)
+    expect(next.state.rngState).toBe(state.rngState)
+  })
+
+  it('敌人阶段刚获得的虚弱不会在同一轮结束时被减掉', () => {
+    const state = prepare(begin(), {
+      playerHp: 50,
+      playerBlock: 0,
+      playerStatuses: [{ id: 'weak', amount: 1, deferred: 1 }],
+    })
+    const next = applyAction(state, { type: 'endTurn' })
+    expect(next.ok).toBe(true)
+    if (!next.ok) return
+    expect(next.state.player.hp).toBe(42)
+    expect(next.state.player.statuses).toEqual([{ id: 'weak', amount: 1, deferred: 0 }])
+    expect(next.state.events.some((event) => event.type === 'statusTicked' && event.status === 'weak')).toBe(true)
+  })
+
+  it('敌人获得护甲只保留原来的意图记录', () => {
+    const state = prepare(begin(), { patternIndex: 1, playerHp: 50, playerBlock: 0 })
+    const next = applyAction(state, { type: 'endTurn' })
+    expect(next.ok).toBe(true)
+    if (!next.ok) return
+    expect(next.state.enemy?.block).toBe(6)
+    expect(next.state.log).toEqual(['灰卫：获得 6 点护甲'])
+  })
+
   it('牌堆和弃牌堆都空时结束回合不会抛错', () => {
     const state = prepare(begin(), {
       hand: [],
