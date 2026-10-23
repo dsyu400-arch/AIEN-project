@@ -1,3 +1,5 @@
+import { attackHitChance, judgeHit } from './accuracy.ts'
+import type { HitChance } from './accuracy.ts'
 import { getCard } from './cards.ts'
 import { DRAW_PER_TURN, ENERGY_PER_TURN, HAND_LIMIT } from './constants.ts'
 import { applyAttackHits, applyHpLoss, modifyAttackDamage, modifyBlockGain } from './damage.ts'
@@ -5,7 +7,7 @@ import { currentIntent } from './enemies.ts'
 import { appendEvents, statusChangeDrafts } from './events.ts'
 import type { CombatEventDraft } from './events.ts'
 import { shuffle } from './rng.ts'
-import { applyStatusStacks, consumePoison, diffStatusChanges, tickCombatant } from './status.ts'
+import { applyStatusStacks, consumeAim, consumePoison, diffStatusChanges, tickCombatant } from './status.ts'
 import type {
   ActionResult,
   ActorRef,
@@ -17,6 +19,7 @@ import type {
   RunState,
   StatusApplication,
   StatusInstance,
+  TriggerEffect,
 } from './types.ts'
 
 function reject(state: RunState, reason: string): ActionResult {
@@ -114,34 +117,60 @@ export function startBattle(state: RunState, enemy: Enemy): RunState {
   return startPlayerTurn(opening)
 }
 
-function applyEffect(state: RunState, effect: Effect, name: string): RunState {
+function profileFor(attacker: Combatant, defender: Combatant, baseAccuracy: number | undefined, nextAttackAccuracy: number | null, cannotMiss: boolean): HitChance {
+  return attackHitChance({ baseAccuracy, nextAttackAccuracy, cannotMiss, attacker, defender })
+}
+
+function rollHit(state: RunState, profile: HitChance): { state: RunState; hit: boolean } {
+  const judged = judgeHit(state.hitRngState, profile.chance, profile.cannotMiss)
+  return { state: { ...state, hitRngState: judged.hitRngState }, hit: judged.hit }
+}
+
+function applyEffect(state: RunState, effect: Effect, name: string, attack: HitChance | null): RunState {
   switch (effect.type) {
     case 'damage': {
       if (!state.enemy) return state
       const target: ActorRef = { side: 'enemy', id: state.enemy.id }
       const source: ActorRef = { side: 'player' }
-      let enemy = state.enemy
-      const hits: Array<{ amount: number; blocked: number; hpLoss: number; hitIndex: number }> = []
-      for (let hitIndex = 0; hitIndex < effect.times; hitIndex += 1) {
-        const amount = modifyAttackDamage(effect.amount, state.player, enemy)
-        const result = applyAttackHits(enemy, amount, 1)
-        enemy = result.combatant
-        const hit = result.hits[0]
-        if (hit) hits.push({ ...hit, hitIndex })
-      }
-      return appendEvents({ ...state, enemy }, [
-        { type: 'damageEffect', name, amount: hits[0]?.amount ?? effect.amount, times: effect.times, target },
-        ...hits.map((hit) => ({
-          type: 'damageDealt' as const,
-          source,
-          target,
-          damageType: 'attack' as const,
-          amount: hit.amount,
-          blocked: hit.blocked,
-          hpLoss: hit.hpLoss,
-          hitIndex: hit.hitIndex,
-        })),
+      const profile = attack ?? profileFor(state.player, state.enemy, undefined, state.player.nextAttackAccuracy, false)
+      const announced = modifyAttackDamage(effect.amount, state.player, state.enemy)
+      let current = appendEvents(state, [
+        { type: 'damageEffect', name, amount: announced, times: effect.times, target },
       ])
+      for (let hitIndex = 0; hitIndex < effect.times; hitIndex += 1) {
+        if (!current.enemy) break
+        const rolled = rollHit(current, profile)
+        current = rolled.state
+        if (!current.enemy) break
+        if (!rolled.hit) {
+          current = appendEvents(current, [
+            { type: 'attackMissed', source, target, hitIndex, chance: profile.chance },
+          ])
+          current = applyTriggers(current, effect.onMiss, name)
+          continue
+        }
+        const amount = modifyAttackDamage(effect.amount, current.player, current.enemy)
+        const result = applyAttackHits(current.enemy, amount, 1)
+        const hit = result.hits[0]
+        current = { ...current, enemy: result.combatant }
+        if (hit) {
+          current = appendEvents(current, [
+            {
+              type: 'damageDealt',
+              source,
+              target,
+              damageType: 'attack',
+              amount: hit.amount,
+              blocked: hit.blocked,
+              hpLoss: hit.hpLoss,
+              hitIndex,
+              chance: profile.chance,
+            },
+          ])
+        }
+        current = applyTriggers(current, effect.onHit, name)
+      }
+      return current
     }
     case 'block': {
       const gained = modifyBlockGain(effect.amount, state.player)
@@ -167,11 +196,23 @@ function applyEffect(state: RunState, effect: Effect, name: string): RunState {
       return state
     case 'applyStatus':
       return applyStatusEffect(state, effect)
+    case 'setNextAttackAccuracy':
+      return appendEvents(
+        { ...state, player: { ...state.player, nextAttackAccuracy: effect.accuracy } },
+        [{ type: 'accuracyArmed', accuracy: effect.accuracy }],
+      )
     default: {
       const unreachable: never = effect
       throw new Error(`未知效果：${String(unreachable)}`)
     }
   }
+}
+
+function applyTriggers(state: RunState, effects: readonly TriggerEffect[] | undefined, name: string): RunState {
+  if (!effects || effects.length === 0) return state
+  let current = state
+  for (const effect of effects) current = applyEffect(current, effect, name, null)
+  return current
 }
 
 function applyStatusEffect(
@@ -217,9 +258,29 @@ function resolveCard(state: RunState, card: CardInstance, definition: CardDefini
     },
     [{ type: 'cardPlayed', name: definition.name, instanceId: card.instanceId, definitionId: definition.id, cost: definition.cost }],
   )
+  let attack: HitChance | null = null
+  const dealsDamage = definition.effects.some((effect) => effect.type === 'damage')
+  if (dealsDamage && current.enemy) {
+    attack = profileFor(
+      current.player,
+      current.enemy,
+      definition.accuracy,
+      current.player.nextAttackAccuracy,
+      definition.cannotMiss === true,
+    )
+    const before = current.player.statuses
+    const statuses = consumeAim(before)
+    current = appendEvents(
+      {
+        ...current,
+        player: { ...current.player, statuses, nextAttackAccuracy: null },
+      },
+      changeDrafts(before, statuses, { side: 'player' }),
+    )
+  }
   let exhaust = false
   for (const effect of definition.effects) {
-    current = applyEffect(current, effect, definition.name)
+    current = applyEffect(current, effect, definition.name, attack)
     if (effect.type === 'exhaust') exhaust = true
   }
   if (exhaust) {
@@ -301,10 +362,18 @@ function resolveEnemyAction(state: RunState): RunState {
   if (nextEnemy.hp <= 0) return appendEvents({ ...state, enemy: nextEnemy }, drafts)
   nextEnemy = tickCombatant(nextEnemy, 'enemyTurnStart')
   let player = state.player
+  let hitRngState = state.hitRngState
   if (intent.times > 0) {
     const source: ActorRef = { side: 'enemy', id: enemy.id }
     const target: ActorRef = { side: 'player' }
+    const profile = profileFor(nextEnemy, player, intent.accuracy, null, intent.cannotMiss === true)
     for (let hitIndex = 0; hitIndex < intent.times; hitIndex += 1) {
+      const judged = judgeHit(hitRngState, profile.chance, profile.cannotMiss)
+      hitRngState = judged.hitRngState
+      if (!judged.hit) {
+        drafts.push({ type: 'attackMissed', source, target, hitIndex, chance: profile.chance })
+        continue
+      }
       const amount = modifyAttackDamage(intent.damage, nextEnemy, player)
       const result = applyAttackHits(player, amount, 1)
       player = result.combatant
@@ -319,6 +388,7 @@ function resolveEnemyAction(state: RunState): RunState {
         blocked: hit.blocked,
         hpLoss: hit.hpLoss,
         hitIndex,
+        chance: profile.chance,
       })
     }
   }
@@ -347,7 +417,7 @@ function resolveEnemyAction(state: RunState): RunState {
   drafts.push(...changeDrafts(playerBeforeTick.statuses, player.statuses, { side: 'player' }))
   drafts.push(...changeDrafts(enemyBeforeTick.statuses, nextEnemy.statuses, { side: 'enemy', id: enemy.id }))
   drafts.push({ type: 'intentResolved', name: enemy.name, label: intent.label })
-  return appendEvents({ ...state, player, enemy: nextEnemy }, drafts)
+  return appendEvents({ ...state, player, enemy: nextEnemy, hitRngState }, drafts)
 }
 
 /** 弃置手牌并让敌人行动。不开启下一回合，也不改胜负阶段。 */

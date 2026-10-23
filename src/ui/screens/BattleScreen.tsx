@@ -58,6 +58,9 @@ export function BattleScreen({
             <StatusList label="你的状态" statuses={player.statuses} />
             <p>能量 {player.energy} / {player.maxEnergy}</p>
             <EnergyPips energy={player.energy} maxEnergy={player.maxEnergy} energized={cue.energyPulse} />
+            {player.nextAttackAccuracy !== null ? (
+              <p className="next-accuracy">下一张攻击基础命中 {player.nextAttackAccuracy}%</p>
+            ) : null}
             <p className="turn-line">回合 {state.turn}</p>
           </article>
           <article
@@ -112,6 +115,8 @@ export function BattleScreen({
                   key={card.instanceId}
                   card={card}
                   energy={player.energy}
+                  attacker={player}
+                  defender={enemy}
                   onPlay={presentation.playCard}
                 />
               ))}

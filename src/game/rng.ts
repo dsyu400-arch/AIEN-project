@@ -1,7 +1,6 @@
 /**
  * 洗牌、奖励和战斗内抽牌只用这一条序列。
- * 阶段 C 的命中判定会从同一开局种子另派生一条序列，不推进这里的 rngState。
- * 阶段 A 不读取、不推进第二条序列。
+ * 命中判定使用 deriveHitRngState 派生的另一条序列，不推进 rngState。
  */
 export function nextRng(rngState: number): { state: number; value: number } {
   const state = (rngState + 0x6d2b79f5) >>> 0
@@ -23,4 +22,10 @@ export function shuffle<T>(items: readonly T[], rngState: number): { items: T[];
     next[swapIndex] = current as T
   }
   return { items: next, rngState: state }
+}
+
+/** 从开局种子派生命中序列的起点。和洗牌序列互相独立，同一个种子结果固定。 */
+export function deriveHitRngState(seed: number): number {
+  const salted = ((seed >>> 0) ^ 0xa11ce11d) >>> 0
+  return nextRng(salted).state
 }

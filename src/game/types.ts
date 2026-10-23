@@ -13,12 +13,15 @@ export type CardId =
   | 'emberInsight'
   | 'returnFlame'
   | 'gatherFlame'
+  | 'drawBow'
+  | 'scatteredShot'
+  | 'sureEdge'
+  | 'tripleShot'
 
 export type CardType = 'attack' | 'skill' | 'power' | 'status' | 'curse'
 
 export type DamageType = 'attack' | 'hpLoss'
 
-/** 阶段 A 只保留数据模型和时序，不让这些状态改变伤害或格挡。 */
 export type StatusId =
   | 'strength'
   | 'dexterity'
@@ -47,14 +50,29 @@ export type StatusTickMoment = 'enemyTurnStart' | 'afterEnemyActions' | 'playerT
 
 export type ActorRef = { side: 'player' } | { side: 'enemy'; id: string }
 
+/** 命中或失手后可以触发的效果。不能再包含攻击，避免命中判定循环。 */
+export type TriggerEffect =
+  | { type: 'block'; amount: number }
+  | { type: 'draw'; count: number }
+  | { type: 'gainEnergy'; amount: number }
+  | { type: 'selfDamage'; amount: number }
+  | { type: 'applyStatus'; status: StatusId; amount: number; target: 'self' | 'enemy' }
+
 export type Effect =
-  | { type: 'damage'; amount: number; times: number }
+  | {
+      type: 'damage'
+      amount: number
+      times: number
+      onHit?: readonly TriggerEffect[]
+      onMiss?: readonly TriggerEffect[]
+    }
   | { type: 'block'; amount: number }
   | { type: 'draw'; count: number }
   | { type: 'gainEnergy'; amount: number }
   | { type: 'selfDamage'; amount: number }
   | { type: 'exhaust' }
   | { type: 'applyStatus'; status: StatusId; amount: number; target: 'self' | 'enemy' }
+  | { type: 'setNextAttackAccuracy'; accuracy: number }
 
 export interface CardDefinition {
   id: CardId
@@ -63,6 +81,10 @@ export interface CardDefinition {
   cardType: CardType
   description: string
   effects: readonly Effect[]
+  /** 基础命中率 A。缺省为 100。100 仍会被闪避降低。 */
+  accuracy?: number
+  /** 为真时跳过命中率公式，这一张攻击牌的每一段都命中。 */
+  cannotMiss?: boolean
 }
 
 export interface CardInstance {
@@ -80,6 +102,8 @@ export interface Combatant {
 export interface Player extends Combatant {
   energy: number
   maxEnergy: number
+  /** 下一张攻击牌使用的基础命中率。null 表示用卡牌自己的 A。打出攻击牌后清除，回合结束不清除。 */
+  nextAttackAccuracy: number | null
 }
 
 export type IntentKind = 'attack' | 'block' | 'attackBlock'
@@ -97,6 +121,9 @@ export interface Intent {
   block: number
   label: string
   apply?: readonly StatusApplication[]
+  /** 敌人这次意图的基础命中率。缺省为 100。正式敌人不写这个字段。 */
+  accuracy?: number
+  cannotMiss?: boolean
 }
 
 export interface Enemy extends Combatant {
@@ -121,6 +148,8 @@ export interface RunState {
   exhaustPile: CardInstance[]
   rewardOptions: CardId[]
   turn: number
+  /** 命中判定专用随机序列。不推进 rngState，因此不会改变抽牌和奖励。 */
+  hitRngState: number
   /** 下一次战斗事件使用的编号。只增不减，缓冲区挤掉旧事件后也不会复用。 */
   eventSeq: number
   /** 有容量上限的最近事件。不是全局事件总线。 */
@@ -141,7 +170,10 @@ export type CombatEvent =
       blocked: number
       hpLoss: number
       hitIndex: number
+      chance: number
     }
+  | { id: number; type: 'attackMissed'; source: ActorRef; target: ActorRef; hitIndex: number; chance: number }
+  | { id: number; type: 'accuracyArmed'; accuracy: number }
   | { id: number; type: 'blockGained'; name: string; target: ActorRef; amount: number; logged: boolean }
   | { id: number; type: 'energyGained'; name: string; amount: number }
   | { id: number; type: 'selfDamage'; name: string; amount: number; hpLoss: number }

@@ -29,10 +29,13 @@ export function prepare(
     enemyBlock?: number
     enemyStatuses?: readonly StatusInstance[]
     patternIndex?: number
+    hitRngState?: number
+    nextAttackAccuracy?: number | null
   },
 ): RunState {
   return {
     ...state,
+    hitRngState: patch.hitRngState ?? state.hitRngState,
     hand: patch.hand ?? state.hand,
     drawPile: patch.drawPile ?? state.drawPile,
     discardPile: patch.discardPile ?? state.discardPile,
@@ -43,6 +46,8 @@ export function prepare(
       hp: patch.playerHp ?? state.player.hp,
       block: patch.playerBlock ?? state.player.block,
       statuses: patch.playerStatuses ?? state.player.statuses,
+      nextAttackAccuracy:
+        patch.nextAttackAccuracy === undefined ? state.player.nextAttackAccuracy : patch.nextAttackAccuracy,
     },
     enemy: state.enemy
       ? {

@@ -611,7 +611,8 @@
 .card-top,
 .card-name,
 .card-rule,
-.card-text {
+.card-text,
+.card-hit {
   position: relative;
   z-index: 1;
 }
@@ -689,6 +690,13 @@
   font-size: 14px;
   line-height: 1.45;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+}
+
+.card-hit {
+  margin-top: auto;
+  color: #f0d7a2;
+  font-size: 12px;
+  letter-spacing: 0.04em;
 }
 
 .reward-screen {
@@ -948,6 +956,17 @@
 .float-block { color: var(--gold); }
 .float-heal { color: #8dce86; }
 .float-energy { color: var(--accent); }
+.float-miss {
+  color: #efe8dc;
+  font-size: 22px;
+  letter-spacing: 0.14em;
+}
+
+.next-accuracy {
+  margin: 0;
+  color: var(--gold);
+  font-size: 14px;
+}
 
 .fighter-player.is-hit::before,
 .emblem::before {

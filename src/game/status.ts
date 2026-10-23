@@ -1,3 +1,4 @@
+import { AIM_HIT_BONUS, EXPOSE_HIT_BONUS } from './constants.ts'
 import type {
   Combatant,
   StatusApplyWindow,
@@ -22,7 +23,7 @@ export const STATUS_DEFINITIONS = {
   frail: { name: '脆弱', polarity: 'debuff', timing: 'endOfRound' },
   poison: { name: '中毒', polarity: 'debuff', timing: 'ownerTurnStart' },
   aim: { name: '瞄准', polarity: 'buff', timing: 'untilAttack' },
-  expose: { name: '破绽', polarity: 'debuff', timing: 'reserved' },
+  expose: { name: '破绽', polarity: 'debuff', timing: 'endOfRound' },
   evasion: { name: '闪避', polarity: 'buff', timing: 'combat' },
 } as const satisfies Record<StatusId, StatusDefinition>
 
@@ -46,20 +47,28 @@ const STATUS_DETAILS: Record<StatusId, string> = {
   vulnerable: '受到的攻击伤害增加 50%。数字是剩余回合。',
   frail: '卡牌获得的格挡降低 25%。数字是剩余回合。',
   poison: '回合开始时失去等同层数的生命，然后层数减 1。无视护甲。',
-  aim: '当前版本不会改变战斗数值。',
-  expose: '当前版本不会改变战斗数值。',
-  evasion: '当前版本不会改变战斗数值。',
+  aim: `打出攻击牌时，命中率提高 ${AIM_HIT_BONUS} 个百分点。数字是剩余次数，每次打出攻击牌减少 1，回合结束不减少。`,
+  expose: `被攻击时，攻击方命中率提高 ${EXPOSE_HIT_BONUS} 个百分点。数字是剩余回合，重复施加只增加回合。`,
+  evasion: '每层使攻击你的命中率降低 1 个百分点。本场战斗持续。',
 }
 
 export function describeStatus(status: StatusInstance): StatusView {
   const definition = STATUS_DEFINITIONS[status.id]
-  const unit = definition.timing === 'endOfRound' ? '回合' : '层'
+  const unit = definition.timing === 'endOfRound' ? '回合' : definition.timing === 'untilAttack' ? '次' : '层'
   return {
     name: definition.name,
     polarity: definition.polarity,
     amountLabel: `${status.amount} ${unit}`,
     detail: STATUS_DETAILS[status.id],
   }
+}
+
+/** 打出一张攻击牌时消耗 1 次瞄准。技能牌和回合结束不调用这里。 */
+export function consumeAim(statuses: readonly StatusInstance[]): readonly StatusInstance[] {
+  const aim = getStatus(statuses, 'aim')
+  if (!aim || aim.amount <= 0) return statuses
+  if (aim.amount === 1) return statuses.filter((status) => status.id !== 'aim')
+  return statuses.map((status) => (status.id === 'aim' ? { id: 'aim' as const, amount: aim.amount - 1, deferred: 0 } : status))
 }
 
 /** 中毒在回合开始单独结算：先造成无视护甲的生命损失，再把层数减 1。这里只改层数。 */

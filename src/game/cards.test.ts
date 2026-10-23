@@ -16,6 +16,10 @@ const expected: Record<CardId, { name: string; cost: number; text: string }> = {
   emberInsight: { name: '余火洞察', cost: 0, text: '抽 1 张牌' },
   returnFlame: { name: '回焰', cost: 0, text: '获得 1 点能量，消耗' },
   gatherFlame: { name: '聚焰', cost: 1, text: '获得 2 点能量' },
+  drawBow: { name: '拉弓', cost: 2, text: '下一张攻击牌的基础命中率变为 100%' },
+  scatteredShot: { name: '散矢', cost: 1, text: '造成 5 点伤害' },
+  sureEdge: { name: '定锋', cost: 0, text: '必定命中' },
+  tripleShot: { name: '三矢', cost: 1, text: '造成 3 点伤害三次' },
 }
 
 describe('卡牌定义', () => {
@@ -46,7 +50,25 @@ describe('卡牌定义', () => {
   it('正式卡池没有状态效果', () => {
     for (const id of CARD_IDS) {
       expect(CARD_DEFINITIONS[id].effects.some((effect) => effect.type === 'applyStatus')).toBe(false)
+      expect(CARD_DEFINITIONS[id].accuracy ?? 100).toBe(100)
+      expect(CARD_DEFINITIONS[id].cannotMiss ?? false).toBe(false)
     }
+  })
+
+  it('拉弓、散矢、定锋和三矢只作规则夹具，不进入奖励池', () => {
+    const pool: readonly string[] = CARD_IDS
+    expect(pool).not.toContain('drawBow')
+    expect(pool).not.toContain('scatteredShot')
+    expect(pool).not.toContain('sureEdge')
+    expect(pool).not.toContain('tripleShot')
+    expect(CARD_DEFINITIONS.drawBow.cardType).toBe('skill')
+    expect(CARD_DEFINITIONS.drawBow.effects).toEqual([
+      { type: 'setNextAttackAccuracy', accuracy: 100 },
+      { type: 'applyStatus', status: 'strength', amount: 1, target: 'self' },
+    ])
+    expect(CARD_DEFINITIONS.scatteredShot.accuracy).toBe(60)
+    expect(CARD_DEFINITIONS.sureEdge.cannotMiss).toBe(true)
+    expect(CARD_DEFINITIONS.tripleShot.effects).toEqual([{ type: 'damage', amount: 3, times: 3 }])
   })
 
   it('灰烬连斩是两次 4 点伤害，回焰会消耗', () => {

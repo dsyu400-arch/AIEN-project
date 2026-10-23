@@ -6,6 +6,8 @@ export {
   ENERGY_PER_TURN,
   EVENT_BUFFER_LIMIT,
   HAND_LIMIT,
+  HIT_CHANCE_MAX,
+  HIT_CHANCE_MIN,
   PLAYER_MAX_HP,
   VICTORY_HEAL,
 } from './constants.ts'
@@ -13,6 +15,7 @@ export { CARD_DEFINITIONS, CARD_IDS, createStarterDeck, getCard } from './cards.
 export { ENCOUNTERS, createEnemy, currentIntent } from './enemies.ts'
 export { shuffle } from './rng.ts'
 export { describeStatus, STATUS_DEFINITIONS } from './status.ts'
+export { attackPreviewLabel } from './accuracy.ts'
 export { applyAction, createRun } from './run.ts'
 
 export type {
@@ -21,6 +24,7 @@ export type {
   CardDefinition,
   CardId,
   CardInstance,
+  Combatant,
   CombatEvent,
   DamageType,
   Effect,

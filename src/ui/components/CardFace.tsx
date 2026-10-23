@@ -1,6 +1,6 @@
 import type { CardDefinition } from '../../game/index.ts'
 
-export function CardFace({ definition }: { definition: CardDefinition }) {
+export function CardFace({ definition, hitLabel = null }: { definition: CardDefinition; hitLabel?: string | null }) {
   const attack = definition.cardType === 'attack'
   return (
     <span className={`card-face ${attack ? 'card-face-attack' : 'card-face-skill'}`}>
@@ -17,6 +17,7 @@ export function CardFace({ definition }: { definition: CardDefinition }) {
       <span className="card-name">{definition.name}</span>
       <span className="card-rule" aria-hidden="true" />
       <span className="card-text">{definition.description}</span>
+      {hitLabel ? <span className="card-hit">{hitLabel}</span> : null}
     </span>
   )
 }

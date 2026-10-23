@@ -41,6 +41,20 @@ describe('战斗事件', () => {
     ])
   })
 
+  it('失手和命中率覆写会写入战斗记录', () => {
+    expect(
+      formatEventLog({
+        id: 1,
+        type: 'attackMissed',
+        source: { side: 'player' },
+        target: { side: 'enemy', id: 'ashGuard' },
+        hitIndex: 1,
+        chance: 70,
+      }),
+    ).toBe('第 2 段失手')
+    expect(formatEventLog({ id: 2, type: 'accuracyArmed', accuracy: 100 })).toBe('下一张攻击的基础命中率变为 100%')
+  })
+
   it('伤害明细和敌人获得护甲不额外写入战斗记录', () => {
     const silent: CombatEvent[] = [
       {
@@ -53,6 +67,7 @@ describe('战斗事件', () => {
         blocked: 6,
         hpLoss: 0,
         hitIndex: 0,
+        chance: 100,
       },
       { id: 2, type: 'blockGained', name: '灰卫', target: { side: 'enemy', id: 'ashGuard' }, amount: 6, logged: false },
       { id: 3, type: 'statusExpired', target: { side: 'player' }, status: 'vulnerable' },

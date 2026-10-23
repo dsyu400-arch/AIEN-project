@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyStatusStacks, consumePoison, getStatus, tickStatuses } from './status.ts'
+import { applyStatusStacks, consumeAim, consumePoison, describeStatus, getStatus, tickStatuses } from './status.ts'
 import type { StatusId, StatusInstance } from './types.ts'
 
 function amountOf(statuses: readonly StatusInstance[], id: StatusId): number | undefined {
@@ -65,8 +65,8 @@ describe('状态时序', () => {
     }
   })
 
-  it('阶段 A 不在任何时点减少中毒、力量、瞄准、闪避或破绽', () => {
-    const ids = ['poison', 'strength', 'aim', 'evasion', 'expose'] as const
+  it('回合末不会减少中毒、力量、瞄准或闪避', () => {
+    const ids = ['poison', 'strength', 'aim', 'evasion'] as const
     for (const id of ids) {
       let statuses = applyStatusStacks([], id, 3, 'enemyPhase')
       statuses = tickStatuses(statuses, 'enemyTurnStart')
@@ -74,6 +74,19 @@ describe('状态时序', () => {
       statuses = tickStatuses(statuses, 'playerTurnStart')
       expect(getStatus(statuses, id)).toEqual({ id, amount: 3, deferred: 0 })
     }
+  })
+
+  it('破绽按回合衰减，重复施加只增加回合', () => {
+    let statuses = applyStatusStacks([], 'expose', 1, 'playerPhase')
+    expect(getStatus(statuses, 'expose')).toEqual({ id: 'expose', amount: 1, deferred: 0 })
+    statuses = tickStatuses(statuses, 'afterEnemyActions')
+    expect(getStatus(statuses, 'expose')).toBeUndefined()
+
+    statuses = applyStatusStacks([], 'expose', 1, 'playerPhase')
+    statuses = applyStatusStacks(statuses, 'expose', 1, 'playerPhase')
+    expect(amountOf(statuses, 'expose')).toBe(2)
+    statuses = tickStatuses(statuses, 'afterEnemyActions')
+    expect(amountOf(statuses, 'expose')).toBe(1)
   })
 
   it('负力量可以保留，降到 0 时移除', () => {
@@ -94,6 +107,15 @@ describe('状态时序', () => {
     const last = consumePoison([{ id: 'poison', amount: 1, deferred: 0 }])
     expect(last).toEqual({ damage: 1, statuses: [] })
     expect(consumePoison([])).toBeNull()
+  })
+
+  it('瞄准按次数显示，打出攻击牌才减少；破绽按回合显示', () => {
+    expect(describeStatus({ id: 'aim', amount: 2, deferred: 0 }).amountLabel).toBe('2 次')
+    expect(describeStatus({ id: 'expose', amount: 2, deferred: 0 }).amountLabel).toBe('2 回合')
+    expect(describeStatus({ id: 'evasion', amount: 10, deferred: 0 }).amountLabel).toBe('10 层')
+    expect(consumeAim([{ id: 'aim', amount: 2, deferred: 0 }])).toEqual([{ id: 'aim', amount: 1, deferred: 0 }])
+    expect(consumeAim([{ id: 'aim', amount: 1, deferred: 0 }])).toEqual([])
+    expect(consumeAim([])).toEqual([])
   })
 
   it('没有需要衰减的状态时返回原数组', () => {

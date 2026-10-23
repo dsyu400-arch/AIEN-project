@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextRng, shuffle } from './rng.ts'
+import { deriveHitRngState, nextRng, shuffle } from './rng.ts'
 
 describe('随机数', () => {
   it('同一个种子洗牌两次得到相同结果', () => {
@@ -29,5 +29,11 @@ describe('随机数', () => {
     expect(second).toEqual(first)
     expect(first.value).toBeGreaterThanOrEqual(0)
     expect(first.value).toBeLessThan(1)
+  })
+
+  it('命中序列由开局种子另派生，不占用洗牌起点', () => {
+    expect(deriveHitRngState(1)).toBe(deriveHitRngState(1))
+    expect(deriveHitRngState(1)).not.toBe(deriveHitRngState(2))
+    expect(deriveHitRngState(1)).not.toBe(1)
   })
 })

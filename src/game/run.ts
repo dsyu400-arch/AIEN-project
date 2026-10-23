@@ -3,7 +3,7 @@ import { endTurn, playCard, startBattle, startPlayerTurn } from './combat.ts'
 import { ENERGY_PER_TURN, PLAYER_MAX_HP, VICTORY_HEAL } from './constants.ts'
 import { appendEvents } from './events.ts'
 import { createEnemy } from './enemies.ts'
-import { shuffle } from './rng.ts'
+import { deriveHitRngState, shuffle } from './rng.ts'
 import type { ActionResult, CardId, GameAction, RunState } from './types.ts'
 
 function reject(state: RunState, reason: string): ActionResult {
@@ -28,6 +28,7 @@ export function createRun(seed: number): RunState {
       statuses: [],
       energy: ENERGY_PER_TURN,
       maxEnergy: ENERGY_PER_TURN,
+      nextAttackAccuracy: null,
     },
     enemy: null,
     deck: createStarterDeck(),
@@ -37,6 +38,7 @@ export function createRun(seed: number): RunState {
     exhaustPile: [],
     rewardOptions: [],
     turn: 0,
+    hitRngState: deriveHitRngState(normalized),
     eventSeq: 1,
     events: [],
     log: [],
@@ -48,7 +50,7 @@ function markDefeat(state: RunState): RunState {
     {
       ...state,
       phase: 'defeat',
-      player: { ...state.player, hp: 0, statuses: [] },
+      player: { ...state.player, hp: 0, statuses: [], nextAttackAccuracy: null },
     },
     [{ type: 'defeated', target: { side: 'player' } }],
   )
@@ -61,7 +63,7 @@ function finishBattle(state: RunState): RunState {
         ...state,
         phase: 'victory',
         rewardOptions: [],
-        player: { ...state.player, statuses: [] },
+        player: { ...state.player, statuses: [], nextAttackAccuracy: null },
       },
       [{ type: 'victory' }],
     )
@@ -81,6 +83,7 @@ function finishBattle(state: RunState): RunState {
         block: 0,
         energy: 0,
         statuses: [],
+        nextAttackAccuracy: null,
       },
       enemy: null,
       drawPile: [],

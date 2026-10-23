@@ -1,4 +1,4 @@
-import type { RunState } from '../game/index.ts'
+import type { CombatEvent, RunState } from '../game/index.ts'
 
 export interface CombatSnapshot {
   turn: number
@@ -9,7 +9,7 @@ export interface CombatSnapshot {
   enemyBlock: number
 }
 
-export type FloatKind = 'hurt' | 'block' | 'heal' | 'energy'
+export type FloatKind = 'hurt' | 'block' | 'heal' | 'energy' | 'miss'
 export type FloatTarget = 'player' | 'enemy'
 
 export interface CombatFloat {
@@ -94,4 +94,19 @@ export function diffCombat(prev: CombatSnapshot, next: CombatSnapshot): { floats
   }
   if (next.turn !== prev.turn) cue.enemyActing = true
   return { floats, cue }
+}
+
+/** 失手只能来自攻击失手事件。生命没变或护甲没掉都不能当成失手。 */
+export function missFloatsSince(before: readonly CombatEvent[], after: readonly CombatEvent[]): CombatFloat[] {
+  const seen = new Set(before.map((event) => event.id))
+  const floats: CombatFloat[] = []
+  for (const event of after) {
+    if (event.type !== 'attackMissed' || seen.has(event.id)) continue
+    floats.push({
+      target: event.target.side === 'player' ? 'player' : 'enemy',
+      kind: 'miss',
+      text: 'MISS',
+    })
+  }
+  return floats
 }

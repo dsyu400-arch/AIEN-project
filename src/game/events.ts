@@ -34,6 +34,10 @@ export function formatEventLog(event: CombatEvent): string | null {
       return event.target.side === 'player' ? '你倒下了' : null
     case 'victory':
       return '你登上了塔顶'
+    case 'attackMissed':
+      return `第 ${event.hitIndex + 1} 段失手`
+    case 'accuracyArmed':
+      return `下一张攻击的基础命中率变为 ${event.accuracy}%`
     case 'damageDealt':
     case 'statusApplied':
     case 'statusTicked':

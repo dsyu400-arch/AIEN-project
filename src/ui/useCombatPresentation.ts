@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { getCard } from '../game/index.ts'
 import type { CardDefinition, GameAction, RunState } from '../game/index.ts'
-import { diffCombat, emptyCue, snapshotOf } from './feedback.ts'
+import { diffCombat, emptyCue, missFloatsSince, snapshotOf } from './feedback.ts'
 import type { CombatCue, CombatFloat } from './feedback.ts'
 
 export const GHOST_MS = 320
@@ -38,6 +38,7 @@ export function useCombatPresentation(state: RunState, onAction: (action: GameAc
   const [floats, setFloats] = useState<FloatView[]>([])
   const [cue, setCue] = useState<CueView>({ id: 0, ...emptyCue() })
   const previous = useRef(snapshotOf(state))
+  const previousEvents = useRef(state.events)
   const serial = useRef(0)
   const timers = useRef<number[]>([])
 
@@ -53,13 +54,16 @@ export function useCombatPresentation(state: RunState, onAction: (action: GameAc
     presentedStates.add(state)
     const next = snapshotOf(state)
     const prev = previous.current
+    const priorEvents = previousEvents.current
     previous.current = next
+    previousEvents.current = state.events
     if (!prev || !next) return
     const change = diffCombat(prev, next)
-    if (change.floats.length === 0 && !hasCue(change.cue)) return
+    const misses = missFloatsSince(priorEvents, state.events)
+    if (change.floats.length === 0 && misses.length === 0 && !hasCue(change.cue)) return
     const cueId = serial.current + 1
     serial.current = cueId
-    const stamped = change.floats.map((float, index) => ({
+    const stamped = [...change.floats, ...misses].map((float, index) => ({
       ...float,
       id: `float-${cueId}-${index}`,
       shift: index * 18,

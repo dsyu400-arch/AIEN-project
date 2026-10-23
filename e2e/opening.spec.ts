@@ -60,6 +60,20 @@ test.describe('第一场战斗', () => {
     await expect(page.locator('.hand .card')).toHaveCount(5)
   })
 
+  test('攻击牌显示命中率，正常命中不会记成失手', async ({ page }) => {
+    const cards = await readHand(page)
+    expect(cards.some((card) => getCard(card.definitionId).cardType === 'attack')).toBe(true)
+    for (const card of cards) {
+      const definition = getCard(card.definitionId)
+      const hit = page.locator(`.hand .card[data-instance-id="${card.instanceId}"] .card-hit`)
+      if (definition.cardType === 'attack') await expect(hit).toHaveText('命中 100%')
+      else await expect(hit).toHaveCount(0)
+    }
+    const attack = await findHandCard(page, (card, definition) => !card.disabled && definition.cardType === 'attack')
+    await clickCard(page, attack.instanceId)
+    await expect(page.locator('.battle-log')).not.toContainText('失手')
+  })
+
   test('打出攻击牌后敌人生命减少', async ({ page }) => {
     const attack = await findHandCard(page, (card, definition) => !card.disabled && singleStrike(definition) > 0)
     const dealt = singleStrike(getCard(attack.definitionId as CardId))

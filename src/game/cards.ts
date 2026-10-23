@@ -118,6 +118,52 @@ export const CARD_DEFINITIONS: Record<CardId, CardDefinition> = {
     description: '获得 2 点能量。',
     effects: [{ type: 'gainEnergy', amount: 2 }],
   },
+  drawBow: {
+    id: 'drawBow',
+    name: '拉弓',
+    cost: 2,
+    cardType: 'skill',
+    description: '下一张攻击牌的基础命中率变为 100%。获得 1 层力量。',
+    effects: [
+      { type: 'setNextAttackAccuracy', accuracy: 100 },
+      { type: 'applyStatus', status: 'strength', amount: 1, target: 'self' },
+    ],
+  },
+  scatteredShot: {
+    id: 'scatteredShot',
+    name: '散矢',
+    cost: 1,
+    cardType: 'attack',
+    accuracy: 60,
+    description: '造成 5 点伤害。命中时施加 1 层易伤，失手时获得 3 点护甲。',
+    effects: [
+      {
+        type: 'damage',
+        amount: 5,
+        times: 1,
+        onHit: [{ type: 'applyStatus', status: 'vulnerable', amount: 1, target: 'enemy' }],
+        onMiss: [{ type: 'block', amount: 3 }],
+      },
+    ],
+  },
+  sureEdge: {
+    id: 'sureEdge',
+    name: '定锋',
+    cost: 0,
+    cardType: 'attack',
+    cannotMiss: true,
+    description: '必定命中。造成 4 点伤害。',
+    effects: [{ type: 'damage', amount: 4, times: 1 }],
+  },
+  tripleShot: {
+    id: 'tripleShot',
+    name: '三矢',
+    cost: 1,
+    cardType: 'attack',
+    accuracy: 50,
+    description: '造成 3 点伤害三次。每一段单独判定命中。',
+    effects: [{ type: 'damage', amount: 3, times: 3 }],
+  },
 }
 
 const STARTER_IDS = [

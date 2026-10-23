@@ -4,8 +4,10 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { StrictMode, useReducer } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { applyAction, createRun } from '../game/index.ts'
+import { nextRng } from '../game/rng.ts'
+import { begin, card, prepare } from '../game/test-utils.ts'
 import type { GameAction, RunState } from '../game/index.ts'
-import { diffCombat } from './feedback.ts'
+import { diffCombat, missFloatsSince } from './feedback.ts'
 import type { CombatSnapshot } from './feedback.ts'
 import { BattleScreen } from './screens/BattleScreen.tsx'
 import { RewardScreen } from './screens/RewardScreen.tsx'
@@ -83,6 +85,7 @@ describe('战斗反馈', () => {
     expect(document.querySelector('.card-ghost-attack')).toBeTruthy()
     expect(document.querySelectorAll('.float-hurt')).toHaveLength(1)
     expect(document.querySelector('.float-hurt')?.textContent).toBe('-6')
+    expect(document.querySelector('.float-miss')).toBeNull()
     expect(document.querySelector('.fighter-enemy')?.classList.contains('is-shaken')).toBe(true)
 
     const ghost = document.querySelector('.card-ghost')
@@ -142,5 +145,71 @@ describe('战斗反馈', () => {
     fireEvent.click(buttonByDefinition('emberSlash'))
     expect(document.querySelectorAll('.float-hurt')).toHaveLength(1)
     expect(document.querySelectorAll('.card-ghost')).toHaveLength(1)
+  })
+
+  it('失手飘字来自失手事件，护甲吸干伤害时不会显示 MISS', () => {
+    const missed = {
+      id: 4,
+      type: 'attackMissed' as const,
+      source: { side: 'player' as const },
+      target: { side: 'enemy' as const, id: 'ashGuard' },
+      hitIndex: 0,
+      chance: 40,
+    }
+    expect(missFloatsSince([], [missed])).toEqual([{ target: 'enemy', kind: 'miss', text: 'MISS' }])
+    expect(missFloatsSince([missed], [missed])).toEqual([])
+    const blocked = diffCombat({ ...baseSnap, enemyBlock: 8 }, { ...baseSnap, enemyBlock: 2, playerEnergy: 2 })
+    expect(blocked.floats).toEqual([])
+  })
+
+  it('攻击牌显示实际命中率，失手时显示 MISS 且不扣血', () => {
+    render(<Harness initial={startedBattle()} />)
+    const labels = [...document.querySelectorAll('.hand .card-face-attack .card-hit')].map((node) => node.textContent)
+    expect(labels.length).toBeGreaterThan(0)
+    expect(labels.every((label) => label === '命中 100%')).toBe(true)
+    expect(document.querySelector('.hand .card-face-skill .card-hit')).toBeNull()
+    cleanup()
+
+    const missAt25 = (() => {
+      let state = 1
+      for (let attempt = 0; attempt < 100000; attempt += 1) {
+        const rolled = nextRng(state)
+        if (rolled.value >= 0.25) return state
+        state = (state + 1) >>> 0
+      }
+      throw new Error('找不到失手随机数')
+    })()
+    const prepared = prepare(begin(), {
+      hand: [card('emberSlash', 'slash')],
+      energy: 1,
+      enemyHp: 36,
+      enemyBlock: 6,
+      enemyStatuses: [{ id: 'evasion', amount: 80, deferred: 0 }],
+      hitRngState: missAt25,
+    })
+    render(<Harness initial={prepared} />)
+    expect(document.querySelector('.card-hit')?.textContent).toBe('命中 25%')
+    fireEvent.click(buttonByDefinition('emberSlash'))
+    expect(document.querySelector('.float-miss')?.textContent).toBe('MISS')
+    expect(document.querySelector('.float-hurt')).toBeNull()
+    expect(document.querySelector('.fighter-enemy')?.textContent).toContain('生命 36 / 36')
+    expect(document.querySelector('.fighter-enemy')?.textContent).toContain('护甲 6')
+    expect(document.querySelector('.fighter-player')?.textContent).toContain('能量 0')
+  })
+
+  it('拉弓之后攻击牌预览使用覆写后的基础命中率', () => {
+    const prepared = prepare(begin(), {
+      hand: [card('drawBow', 'bow'), card('scatteredShot', 'shot')],
+      energy: 3,
+      enemyHp: 40,
+      enemyStatuses: [{ id: 'evasion', amount: 20, deferred: 0 }],
+    })
+    render(<Harness initial={prepared} />)
+    expect(document.querySelector('[data-definition-id="scatteredShot"] .card-hit')?.textContent).toBe('命中 40%')
+    fireEvent.click(buttonByDefinition('drawBow'))
+    expect(screen.getByText('下一张攻击基础命中 100%')).toBeTruthy()
+    expect(document.querySelector('[data-definition-id="scatteredShot"] .card-hit')?.textContent).toBe('命中 80%')
+    expect(screen.getByRole('button', { name: /力量/ }).textContent).toContain('1 层')
+    expect(document.querySelector('.card-hit')?.textContent).not.toBe('必定命中')
   })
 })
