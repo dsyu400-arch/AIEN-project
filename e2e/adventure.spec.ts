@@ -42,6 +42,7 @@ test('真实操作打完三场战斗', async ({ page }) => {
     await page.locator('[data-reward="true"]').first().click()
     await expect(page.getByText('第 2 / 3 场')).toBeVisible()
     await expect(page.getByRole('heading', { name: '烬狼' })).toBeVisible()
+    await expect(page.locator('.evasion-line')).toHaveText('闪避 10 个百分点')
     await expect(page.getByTestId('battle')).toHaveAttribute('data-hp', String(hp))
     await expect(page.locator('.card-ghost')).toHaveCount(0)
   })

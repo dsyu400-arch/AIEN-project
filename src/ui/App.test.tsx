@@ -26,6 +26,27 @@ function killsSelf(definition: CardDefinition, hp: number): boolean {
   return definition.effects.some((effect) => effect.type === 'selfDamage' && effect.amount >= hp)
 }
 
+function displayedChance(button: HTMLButtonElement, definition: CardDefinition): number {
+  const match = button.dataset.hit?.match(/(\d+)/)
+  if (match?.[1]) return Number(match[1])
+  return definition.cannotMiss ? 100 : (definition.accuracy ?? 100)
+}
+
+function strengthNow(): number {
+  const label = document.querySelector('.fighter-player')?.textContent ?? ''
+  const match = label.match(/力量\s*(-?\d+)/)
+  return match?.[1] ? Number(match[1]) : 0
+}
+
+function expectedDamage(definition: CardDefinition, chance: number, strength: number): number {
+  let total = 0
+  for (const effect of definition.effects) {
+    if (effect.type !== 'damage') continue
+    total += Math.max(0, effect.amount + strength) * effect.times * (chance / 100)
+  }
+  return total
+}
+
 function phase(): string | undefined {
   return screen.getByTestId('run').dataset.phase
 }
@@ -36,7 +57,8 @@ function handCards(): HTMLButtonElement[] {
   })
 }
 
-function chooseCard(hp: number, threat: number): HTMLButtonElement | undefined {
+function chooseCard(hp: number, threat: number, energy: number): HTMLButtonElement | undefined {
+  const strength = strengthNow()
   const playable = handCards()
     .filter((button) => !button.disabled)
     .map((button) => ({
@@ -47,11 +69,20 @@ function chooseCard(hp: number, threat: number): HTMLButtonElement | undefined {
   const blocks = playable.filter((entry) => blockOf(entry.definition) > 0)
   const attacks = playable.filter((entry) => damageOf(entry.definition) > 0)
   const utility = playable.filter((entry) =>
-    entry.definition.effects.some((effect) => effect.type === 'draw' || effect.type === 'gainEnergy'),
+    entry.definition.effects.some((effect) =>
+      effect.type === 'draw' || effect.type === 'gainEnergy' || effect.type === 'applyStatus' || effect.type === 'setNextAttackAccuracy',
+    ),
   )
+  const setup = playable.find((entry) => entry.definition.effects.some((effect) => effect.type === 'setNextAttackAccuracy'))
+  const attackAfterSetup = setup
+    ? attacks.some((entry) => entry.definition.cost <= energy - setup.definition.cost)
+    : false
+  const score = (entry: (typeof attacks)[number]) =>
+    expectedDamage(entry.definition, displayedChance(entry.button, entry.definition), strength)
   const choice =
     (threat > 0 ? blocks.sort((left, right) => blockOf(right.definition) - blockOf(left.definition))[0] : undefined) ??
-    attacks.sort((left, right) => damageOf(right.definition) - damageOf(left.definition))[0] ??
+    (attackAfterSetup ? setup : undefined) ??
+    attacks.sort((left, right) => score(right) - score(left))[0] ??
     utility[0] ??
     playable[0]
   return choice?.button
@@ -100,8 +131,9 @@ describe('游戏界面', () => {
       }
       const battle = screen.getByTestId('battle')
       const hp = Number(battle.dataset.hp)
+      const energy = Number(battle.dataset.energy)
       const threat = Math.max(0, Number(battle.dataset.threat) - Number(battle.dataset.block))
-      const choice = chooseCard(hp, threat)
+      const choice = chooseCard(hp, threat, energy)
       if (choice) {
         fireEvent.click(choice)
         continue

@@ -3,7 +3,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { StrictMode, useReducer } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { applyAction, createRun } from '../game/index.ts'
+import { applyAction, createEnemy, createRun, getCard } from '../game/index.ts'
+import { startBattle } from '../game/combat.ts'
 import { nextRng } from '../game/rng.ts'
 import { begin, card, prepare } from '../game/test-utils.ts'
 import type { GameAction, RunState } from '../game/index.ts'
@@ -21,6 +22,16 @@ afterEach(() => {
 
 function startedBattle(): RunState {
   return applyAction(createRun(1), { type: 'startRun' }).state
+}
+
+function controlledBattle(): RunState {
+  return prepare(begin(1), {
+    hand: [card('emberSlash', 'slash-a'), card('emberSlash', 'slash-b'), card('ashShield', 'shield')],
+    energy: 3,
+    enemyHp: 36,
+    enemyBlock: 0,
+    playerBlock: 0,
+  })
 }
 
 function Harness({ initial }: { initial: RunState }) {
@@ -75,7 +86,7 @@ describe('战斗反馈', () => {
   })
 
   it('出牌后立刻更新状态，并只结算一次', () => {
-    render(<Harness initial={startedBattle()} />)
+    render(<Harness initial={controlledBattle()} />)
     const before = handCount()
     fireEvent.click(buttonByDefinition('emberSlash'))
 
@@ -96,7 +107,7 @@ describe('战斗反馈', () => {
   })
 
   it('防御牌使用短反馈，并显示实际护甲', () => {
-    render(<Harness initial={startedBattle()} />)
+    render(<Harness initial={controlledBattle()} />)
     fireEvent.click(buttonByDefinition('ashShield'))
     expect(screen.getByText('护甲 5')).toBeTruthy()
     expect(document.querySelector('.card-ghost-skill')).toBeTruthy()
@@ -120,7 +131,7 @@ describe('战斗反馈', () => {
 
   it('残影会清理，页面切换后不残留', () => {
     vi.useFakeTimers()
-    const view = render(<Harness initial={startedBattle()} />)
+    const view = render(<Harness initial={controlledBattle()} />)
     fireEvent.click(buttonByDefinition('emberSlash'))
     expect(document.querySelector('.card-ghost')).toBeTruthy()
     act(() => {
@@ -139,7 +150,7 @@ describe('战斗反馈', () => {
   it('StrictMode 下同一次出牌只出现一个伤害数字', () => {
     render(
       <StrictMode>
-        <Harness initial={startedBattle()} />
+        <Harness initial={controlledBattle()} />
       </StrictMode>,
     )
     fireEvent.click(buttonByDefinition('emberSlash'))
@@ -163,11 +174,24 @@ describe('战斗反馈', () => {
   })
 
   it('攻击牌显示实际命中率，失手时显示 MISS 且不扣血', () => {
-    render(<Harness initial={startedBattle()} />)
-    const labels = [...document.querySelectorAll('.hand .card-face-attack .card-hit')].map((node) => node.textContent)
-    expect(labels.length).toBeGreaterThan(0)
-    expect(labels.every((label) => label === '命中 100%')).toBe(true)
-    expect(document.querySelector('.hand .card-face-skill .card-hit')).toBeNull()
+    const opening = startedBattle()
+    render(<Harness initial={opening} />)
+    const enemy = opening.enemy
+    if (!enemy) throw new Error('缺少敌人')
+    expect(document.querySelector('.evasion-line')?.textContent).toBe('闪避 0 个百分点')
+    const attacks = opening.hand.filter((item) => getCard(item.definitionId).cardType === 'attack')
+    expect(attacks.length).toBeGreaterThan(0)
+    for (const item of opening.hand) {
+      const definition = getCard(item.definitionId)
+      const node = document.querySelector(`[data-instance-id="${item.instanceId}"] .card-hit`)
+      if (definition.cardType !== 'attack') {
+        expect(node).toBeNull()
+        continue
+      }
+      const segments = definition.effects.reduce((total, effect) => (effect.type === 'damage' ? total + effect.times : total), 0)
+      const chance = definition.accuracy ?? 100
+      expect(node?.textContent).toBe(segments > 1 ? `每段命中 ${chance}%` : `命中 ${chance}%`)
+    }
     cleanup()
 
     const missAt25 = (() => {
@@ -211,5 +235,77 @@ describe('战斗反馈', () => {
     expect(document.querySelector('[data-definition-id="scatteredShot"] .card-hit')?.textContent).toBe('命中 80%')
     expect(screen.getByRole('button', { name: /力量/ }).textContent).toContain('1 层')
     expect(document.querySelector('.card-hit')?.textContent).not.toBe('必定命中')
+  })
+
+  it('六张新牌、拉弓、校准、破绽和敌人闪避都能在界面上读到', () => {
+    const wolf = prepare(startBattle(createRun(1), createEnemy(1)), {
+      hand: [
+        card('drawBow', 'bow'),
+        card('emberArrow', 'arrow'),
+        card('ruinArrow', 'ruin'),
+        card('chainArrow', 'chain'),
+        card('calibrate', 'cal'),
+        card('riftMark', 'mark'),
+      ],
+      drawPile: [card('ashShield', 'extra')],
+      energy: 3,
+      enemyHp: 48,
+    })
+    render(<Harness initial={wolf} />)
+    expect(screen.getByRole('heading', { name: '烬狼' })).toBeTruthy()
+    expect(document.querySelector('.evasion-line')?.textContent).toBe('闪避 10 个百分点')
+    expect(screen.getByRole('button', { name: /闪避/ }).textContent).toContain('10 层')
+    for (const [id, name, kind] of [
+      ['emberArrow', '烬矢', '攻击'],
+      ['ruinArrow', '破灭重矢', '攻击'],
+      ['chainArrow', '连珠烬箭', '攻击'],
+      ['drawBow', '拉弓', '技能'],
+      ['calibrate', '校准', '技能'],
+      ['riftMark', '裂隙标记', '技能'],
+    ] as const) {
+      const face = document.querySelector(`[data-definition-id="${id}"]`)
+      expect(face?.textContent).toContain(name)
+      expect(face?.textContent).toContain(kind)
+    }
+    expect(document.querySelector('[data-definition-id="emberArrow"] .card-hit')?.textContent).toBe('命中 65%')
+    expect(document.querySelector('[data-definition-id="ruinArrow"] .card-hit')?.textContent).toBe('命中 50%')
+    expect(document.querySelector('[data-definition-id="chainArrow"] .card-hit')?.textContent).toBe('每段命中 70%')
+    expect(document.querySelector('[data-definition-id="ruinArrow"]')?.getAttribute('data-cost')).toBe('2')
+    expect(document.querySelector('[data-definition-id="calibrate"]')?.getAttribute('data-cost')).toBe('0')
+
+    fireEvent.click(buttonByDefinition('calibrate'))
+    expect(screen.getByRole('button', { name: /瞄准/ }).textContent).toContain('1 次')
+    expect(screen.getByRole('button', { name: '消耗 1' })).toBeTruthy()
+    expect(document.querySelector('[data-definition-id="emberArrow"] .card-hit')?.textContent).toBe('命中 85%')
+    expect(document.querySelector('[data-definition-id="chainArrow"] .card-hit')?.textContent).toBe('每段命中 90%')
+
+    fireEvent.click(buttonByDefinition('drawBow'))
+    expect(screen.getByText('下一张攻击基础命中 100%')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /力量/ }).textContent).toContain('1 层')
+    expect(document.querySelector('[data-definition-id="emberArrow"] .card-hit')?.textContent).toBe('命中 100%')
+    expect(document.querySelector('[data-definition-id="chainArrow"] .card-hit')?.textContent).toBe('每段命中 100%')
+    expect(document.querySelector('[data-definition-id="emberArrow"] .card-hit')?.textContent).not.toBe('必定命中')
+
+    fireEvent.click(buttonByDefinition('riftMark'))
+    expect(screen.getByRole('button', { name: /破绽/ }).textContent).toContain('2 回合')
+    expect(screen.getByRole('button', { name: /闪避/ }).textContent).toContain('10 层')
+    expect(document.querySelector('[data-definition-id="ashShield"]')).toBeTruthy()
+  })
+
+  it('奖励里的新牌沿用现有卡面', () => {
+    render(
+      <RewardScreen
+        state={{
+          ...startedBattle(),
+          phase: 'reward',
+          rewardOptions: ['emberArrow', 'drawBow', 'calibrate'],
+        }}
+        onAction={() => undefined}
+      />,
+    )
+    expect(screen.getByRole('button', { name: '选择烬矢' }).className).toContain('card-attack')
+    expect(screen.getByRole('button', { name: '选择拉弓' }).className).toContain('card-skill')
+    expect(screen.getByRole('button', { name: '选择校准' }).textContent).toContain('消耗')
+    expect(screen.getByRole('button', { name: '选择烬矢' }).textContent).toContain('基础命中率 75%')
   })
 })

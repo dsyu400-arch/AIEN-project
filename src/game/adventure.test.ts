@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { attackHitChance } from './accuracy.ts'
 import { getCard } from './cards.ts'
+import { modifyAttackDamage } from './damage.ts'
 import { currentIntent } from './enemies.ts'
 import { applyAction, createRun } from './run.ts'
 import type { CardDefinition, CardId, RunState } from './types.ts'
@@ -21,6 +23,23 @@ function killsSelf(definition: CardDefinition, hp: number): boolean {
   return definition.effects.some((effect) => effect.type === 'selfDamage' && effect.amount >= hp)
 }
 
+function expectedDamage(definition: CardDefinition, state: RunState): number {
+  if (!state.enemy) return damageOf(definition)
+  const profile = attackHitChance({
+    baseAccuracy: definition.accuracy,
+    nextAttackAccuracy: state.player.nextAttackAccuracy,
+    cannotMiss: definition.cannotMiss === true,
+    attacker: state.player,
+    defender: state.enemy,
+  })
+  let total = 0
+  for (const effect of definition.effects) {
+    if (effect.type !== 'damage') continue
+    total += modifyAttackDamage(effect.amount, state.player, state.enemy) * effect.times * (profile.chance / 100)
+  }
+  return total
+}
+
 function playOutTurn(state: RunState): RunState {
   let current = state
   for (let step = 0; step < 30 && current.phase === 'playerTurn'; step += 1) {
@@ -36,11 +55,18 @@ function playOutTurn(state: RunState): RunState {
     const blocks = playable.filter((entry) => blockOf(entry.definition) > 0)
     const attacks = playable.filter((entry) => damageOf(entry.definition) > 0)
     const utility = playable.filter((entry) =>
-      entry.definition.effects.some((effect) => effect.type === 'draw' || effect.type === 'gainEnergy'),
+      entry.definition.effects.some((effect) =>
+        effect.type === 'draw' || effect.type === 'gainEnergy' || effect.type === 'applyStatus' || effect.type === 'setNextAttackAccuracy',
+      ),
     )
+    const setup = playable.find((entry) => entry.definition.effects.some((effect) => effect.type === 'setNextAttackAccuracy'))
+    const attackAfterSetup = setup
+      ? attacks.some((entry) => entry.definition.cost <= current.player.energy - setup.definition.cost)
+      : false
     const choice =
       (threat > 0 ? blocks.sort((left, right) => blockOf(right.definition) - blockOf(left.definition))[0] : undefined) ??
-      attacks.sort((left, right) => damageOf(right.definition) - damageOf(left.definition))[0] ??
+      (attackAfterSetup ? setup : undefined) ??
+      attacks.sort((left, right) => expectedDamage(right.definition, current) - expectedDamage(left.definition, current))[0] ??
       utility[0] ??
       playable[0]
     if (!choice) break

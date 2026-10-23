@@ -84,6 +84,9 @@ export function BattleScreen({
               <p className={classNames('armor-line', cue.enemyBlockPulse && 'is-pulsing')} data-ready={enemy.block > 0 ? 'true' : 'false'}>
                 护甲 {enemy.block}
               </p>
+              <p className="evasion-line" data-evasion={enemyEvasion(enemy)} title="攻击这个敌人时，最终命中率会减去这些百分点">
+                闪避 {enemyEvasion(enemy)} 个百分点
+              </p>
               <StatusList label="敌人状态" statuses={enemy.statuses} />
               <p className={`intent intent-${intent.kind}`}>意图 {intent.label}</p>
             </div>
@@ -141,6 +144,10 @@ export function BattleScreen({
 
 function classNames(...names: Array<string | false>): string {
   return names.filter(Boolean).join(' ')
+}
+
+function enemyEvasion(enemy: { statuses: readonly { id: string; amount: number }[] }): number {
+  return Math.max(0, enemy.statuses.find((status) => status.id === 'evasion')?.amount ?? 0)
 }
 
 function FloatLayer({ floats }: { floats: Array<CombatFloat & { id: string; shift: number }> }) {

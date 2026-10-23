@@ -5,6 +5,8 @@ export interface Encounter {
   name: string
   maxHp: number
   boss: boolean
+  /** 开局闪避层数。每层使受到的攻击命中率降低 1 个百分点，0 表示没有闪避状态。 */
+  evasion: number
   pattern: readonly Intent[]
 }
 
@@ -27,9 +29,9 @@ const towerLordPattern: readonly Intent[] = [
 ]
 
 export const ENCOUNTERS: readonly Encounter[] = [
-  { id: 'ashGuard', name: '灰卫', maxHp: 36, boss: false, pattern: ashGuardPattern },
-  { id: 'emberWolf', name: '烬狼', maxHp: 48, boss: false, pattern: emberWolfPattern },
-  { id: 'towerLord', name: '塔主·残焰', maxHp: 70, boss: true, pattern: towerLordPattern },
+  { id: 'ashGuard', name: '灰卫', maxHp: 36, boss: false, evasion: 0, pattern: ashGuardPattern },
+  { id: 'emberWolf', name: '烬狼', maxHp: 48, boss: false, evasion: 10, pattern: emberWolfPattern },
+  { id: 'towerLord', name: '塔主·残焰', maxHp: 70, boss: true, evasion: 15, pattern: towerLordPattern },
 ]
 
 export function createEnemy(battleIndex: number): Enemy {
@@ -44,7 +46,7 @@ export function createEnemy(battleIndex: number): Enemy {
     hp: encounter.maxHp,
     maxHp: encounter.maxHp,
     block: 0,
-    statuses: [],
+    statuses: encounter.evasion > 0 ? [{ id: 'evasion', amount: encounter.evasion, deferred: 0 }] : [],
     pattern: encounter.pattern.map((intent) => ({ ...intent })),
     patternIndex: 0,
   }

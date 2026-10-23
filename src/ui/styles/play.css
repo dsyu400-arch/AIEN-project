@@ -962,7 +962,8 @@
   letter-spacing: 0.14em;
 }
 
-.next-accuracy {
+.next-accuracy,
+.evasion-line {
   margin: 0;
   color: var(--gold);
   font-size: 14px;

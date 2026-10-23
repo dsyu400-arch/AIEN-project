@@ -411,6 +411,6 @@ describe('命中率', () => {
     const next = must(applyAction(state, { type: 'endTurn' }))
     expect(next.phase).toBe('reward')
     expect(next.player.nextAttackAccuracy).toBeNull()
-    expect(next.rewardOptions.every((id) => id !== 'drawBow' && id !== 'scatteredShot' && id !== 'sureEdge' && id !== 'tripleShot')).toBe(true)
+    expect(next.rewardOptions.every((id) => id !== 'scatteredShot' && id !== 'sureEdge' && id !== 'tripleShot')).toBe(true)
   })
 })

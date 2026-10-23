@@ -13,6 +13,12 @@ export const CARD_IDS = [
   'emberInsight',
   'returnFlame',
   'gatherFlame',
+  'drawBow',
+  'emberArrow',
+  'ruinArrow',
+  'chainArrow',
+  'calibrate',
+  'riftMark',
 ] as const satisfies readonly CardId[]
 
 export const CARD_DEFINITIONS: Record<CardId, CardDefinition> = {
@@ -129,6 +135,56 @@ export const CARD_DEFINITIONS: Record<CardId, CardDefinition> = {
       { type: 'applyStatus', status: 'strength', amount: 1, target: 'self' },
     ],
   },
+  emberArrow: {
+    id: 'emberArrow',
+    name: '烬矢',
+    cost: 1,
+    cardType: 'attack',
+    accuracy: 75,
+    description: '造成 10 点伤害。基础命中率 75%。',
+    effects: [{ type: 'damage', amount: 10, times: 1 }],
+  },
+  ruinArrow: {
+    id: 'ruinArrow',
+    name: '破灭重矢',
+    cost: 2,
+    cardType: 'attack',
+    accuracy: 60,
+    description: '造成 22 点伤害。基础命中率 60%。',
+    effects: [{ type: 'damage', amount: 22, times: 1 }],
+  },
+  chainArrow: {
+    id: 'chainArrow',
+    name: '连珠烬箭',
+    cost: 1,
+    cardType: 'attack',
+    accuracy: 80,
+    description: '造成 4 点伤害三次。每一段单独判定命中。基础命中率 80%。',
+    effects: [{ type: 'damage', amount: 4, times: 3 }],
+  },
+  calibrate: {
+    id: 'calibrate',
+    name: '校准',
+    cost: 0,
+    cardType: 'skill',
+    description: '下一张攻击牌的最终命中率增加 20 个百分点。消耗。',
+    effects: [
+      { type: 'applyStatus', status: 'aim', amount: 1, target: 'self' },
+      { type: 'exhaust' },
+    ],
+  },
+  riftMark: {
+    id: 'riftMark',
+    name: '裂隙标记',
+    cost: 1,
+    cardType: 'skill',
+    description: '给予当前敌人 2 回合破绽，抽 1 张牌。',
+    effects: [
+      { type: 'applyStatus', status: 'expose', amount: 2, target: 'enemy' },
+      { type: 'draw', count: 1 },
+    ],
+  },
+  // 散矢、定锋、三矢只供规则测试，不进入 CARD_IDS，也不出现在奖励里。
   scatteredShot: {
     id: 'scatteredShot',
     name: '散矢',
@@ -170,13 +226,13 @@ const STARTER_IDS = [
   'emberSlash',
   'emberSlash',
   'emberSlash',
-  'emberSlash',
-  'ashShield',
   'ashShield',
   'ashShield',
   'ashShield',
   'emberSpear',
   'returnFlame',
+  'drawBow',
+  'emberArrow',
 ] as const satisfies readonly CardId[]
 
 export function createStarterDeck(): CardInstance[] {

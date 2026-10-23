@@ -9,6 +9,7 @@ export interface HandCard {
   definitionId: CardId
   disabled: boolean
   cost: number
+  hitLabel: string
 }
 
 export async function openGame(page: Page) {
@@ -43,6 +44,7 @@ export async function readHand(page: Page): Promise<HandCard[]> {
       definitionId: element.getAttribute('data-definition-id') ?? '',
       disabled: element instanceof HTMLButtonElement ? element.disabled : true,
       cost: Number(element.getAttribute('data-cost') ?? '0'),
+      hitLabel: element.getAttribute('data-hit') ?? '',
     })),
   )
   return cards.map((card) => ({ ...card, definitionId: asCardId(card.definitionId) }))
@@ -188,7 +190,7 @@ export async function fightToReward(page: Page): Promise<{ hpBefore: number; sel
     if (current === 'defeat') throw new Error('第一关失败')
     if (current !== 'playerTurn') throw new Error(`第一关停在${current ?? '未知阶段'}`)
     const before = await readBattle(page)
-    const choice = chooseCard(await readHand(page), before.hp, before.threat)
+    const choice = chooseCard(await readHand(page), before.hp, before.threat, before.energy, before.strength)
     hpBefore = before.hp
     if (!choice) {
       selfDamage = 0
@@ -286,6 +288,21 @@ function killsSelf(definition: CardDefinition, hp: number): boolean {
   return definition.effects.some((effect) => effect.type === 'selfDamage' && effect.amount >= hp)
 }
 
+function displayedChance(card: HandCard, definition: CardDefinition): number {
+  const match = card.hitLabel.match(/(\d+)/)
+  if (match?.[1]) return Number(match[1])
+  return definition.cannotMiss ? 100 : (definition.accuracy ?? 100)
+}
+
+function expectedDamage(definition: CardDefinition, chance: number, strength: number): number {
+  let total = 0
+  for (const effect of definition.effects) {
+    if (effect.type !== 'damage') continue
+    total += Math.max(0, effect.amount + strength) * effect.times * (chance / 100)
+  }
+  return total
+}
+
 function highest<T>(items: T[], score: (item: T) => number): T | undefined {
   return items.reduce<T | undefined>((best, item) => {
     if (!best || score(item) > score(best)) return item
@@ -293,7 +310,7 @@ function highest<T>(items: T[], score: (item: T) => number): T | undefined {
   }, undefined)
 }
 
-function chooseCard(hand: HandCard[], hp: number, threat: number): HandCard | undefined {
+function chooseCard(hand: HandCard[], hp: number, threat: number, energy: number, strength: number): HandCard | undefined {
   const playable = hand
     .filter((card) => !card.disabled)
     .map((card) => ({ card, definition: getCard(card.definitionId) }))
@@ -301,27 +318,43 @@ function chooseCard(hand: HandCard[], hp: number, threat: number): HandCard | un
   const blocks = playable.filter((entry) => blockOf(entry.definition) > 0)
   const attacks = playable.filter((entry) => damageOf(entry.definition) > 0)
   const utility = playable.filter((entry) =>
-    entry.definition.effects.some((effect) => effect.type === 'draw' || effect.type === 'gainEnergy'),
+    entry.definition.effects.some((effect) =>
+      effect.type === 'draw' || effect.type === 'gainEnergy' || effect.type === 'applyStatus' || effect.type === 'setNextAttackAccuracy',
+    ),
   )
+  const setup = playable.find((entry) => entry.definition.effects.some((effect) => effect.type === 'setNextAttackAccuracy'))
+  const attackAfterSetup = setup
+    ? attacks.some((entry) => entry.definition.cost <= energy - setup.definition.cost)
+    : false
   if (threat > 0) {
     const block = highest(blocks, (entry) => blockOf(entry.definition))
     if (block) return block.card
   }
-  return highest(attacks, (entry) => damageOf(entry.definition))?.card ?? utility[0]?.card ?? playable[0]?.card
+  if (attackAfterSetup && setup) return setup.card
+  return (
+    highest(attacks, (entry) => expectedDamage(entry.definition, displayedChance(entry.card, entry.definition), strength))?.card ??
+    utility[0]?.card ??
+    playable[0]?.card
+  )
 }
 
-async function readBattle(page: Page): Promise<{ hp: number; threat: number }> {
+async function readBattle(page: Page): Promise<{ hp: number; threat: number; energy: number; strength: number }> {
   const battle = page.getByTestId('battle')
   const hp = Number(await battle.getAttribute('data-hp'))
   const block = Number(await battle.getAttribute('data-block'))
   const incoming = Number(await battle.getAttribute('data-threat'))
-  return { hp, threat: Math.max(0, incoming - block) }
+  const energy = Number(await battle.getAttribute('data-energy'))
+  const strengthButton = page.locator('.fighter-player').getByRole('button', { name: /力量/ })
+  const strength = (await strengthButton.count()) > 0
+    ? Number(((await strengthButton.first().innerText()).match(/-?\d+/) ?? ['0'])[0])
+    : 0
+  return { hp, threat: Math.max(0, incoming - block), energy, strength }
 }
 
 async function playBest(page: Page) {
   if ((await phase(page)) !== 'playerTurn') throw new Error('当前不能出牌')
   const before = await readBattle(page)
-  const choice = chooseCard(await readHand(page), before.hp, before.threat)
+  const choice = chooseCard(await readHand(page), before.hp, before.threat, before.energy, before.strength)
   if (!choice) {
     await page.getByRole('button', { name: '结束回合' }).click()
     return

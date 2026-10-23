@@ -1,13 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import { CARD_IDS } from './cards.ts'
+import { nextRng } from './rng.ts'
 import { applyAction, createRun } from './run.ts'
 import type { CardId, RunState } from './types.ts'
 import { begin, card, must, pileIds, play, prepare } from './test-utils.ts'
 
+/** 塔主闪避 15 时仍会命中的随机数。流程测试要的是击倒后的奖励，不是这一下是否失手。 */
+function connectingHit(): number {
+  let state = 1
+  for (let attempt = 0; attempt < 100000; attempt += 1) {
+    const rolled = nextRng(state)
+    if (rolled.value < 0.85) return state
+    state = (state + 1) >>> 0
+  }
+  throw new Error('找不到命中随机数')
+}
+
 function winWithSlash(state: RunState, hp = state.player.hp): RunState {
   const slash = card('emberSlash', 'finisher')
   return play(
-    prepare(state, { hand: [slash], energy: 1, playerHp: hp, enemyHp: 6, enemyBlock: 0 }),
+    prepare(state, { hand: [slash], energy: 1, playerHp: hp, enemyHp: 6, enemyBlock: 0, hitRngState: connectingHit() }),
     'finisher',
   )
 }
@@ -59,6 +71,7 @@ describe('冒险流程', () => {
     expect(secondBattle.player.hp).toBe(28)
     expect(secondBattle.battleIndex).toBe(1)
     expect(secondBattle.enemy?.name).toBe('烬狼')
+    expect(secondBattle.enemy?.statuses).toEqual([{ id: 'evasion', amount: 10, deferred: 0 }])
     expect(secondBattle.deck).toHaveLength(11)
     expect(pileIds(secondBattle)).toEqual(secondBattle.deck.map((item) => item.instanceId).sort())
 
@@ -132,6 +145,7 @@ describe('冒险流程', () => {
     const bossBattle = must(applyAction(second, { type: 'chooseReward', definitionId: second.rewardOptions[0] as CardId }))
     expect(bossBattle.enemy?.name).toBe('塔主·残焰')
     expect(bossBattle.enemy?.hp).toBe(70)
+    expect(bossBattle.enemy?.statuses).toEqual([{ id: 'evasion', amount: 15, deferred: 0 }])
     expect(bossBattle.battleIndex).toBe(2)
     const victory = winWithSlash(bossBattle, 33)
     expect(victory.phase).toBe('victory')

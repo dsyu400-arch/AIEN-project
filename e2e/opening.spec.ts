@@ -41,6 +41,7 @@ test.describe('第一场战斗', () => {
     await expect(page.getByRole('heading', { name: '灰卫' })).toBeVisible()
     await expect(page.getByText('第 1 / 3 场')).toBeVisible()
     await expect(page.locator('.intent')).toHaveText('意图 攻击 8')
+    await expect(page.locator('.evasion-line')).toHaveText('闪避 0 个百分点')
   })
 
   test('初始生命为 50', async ({ page }) => {
@@ -60,22 +61,32 @@ test.describe('第一场战斗', () => {
     await expect(page.locator('.hand .card')).toHaveCount(5)
   })
 
-  test('攻击牌显示命中率，正常命中不会记成失手', async ({ page }) => {
+  test('攻击牌显示当前命中率，必中攻击不会记成失手', async ({ page }) => {
     const cards = await readHand(page)
     expect(cards.some((card) => getCard(card.definitionId).cardType === 'attack')).toBe(true)
+    await expect(page.locator('.evasion-line')).toHaveText('闪避 0 个百分点')
     for (const card of cards) {
       const definition = getCard(card.definitionId)
       const hit = page.locator(`.hand .card[data-instance-id="${card.instanceId}"] .card-hit`)
-      if (definition.cardType === 'attack') await expect(hit).toHaveText('命中 100%')
-      else await expect(hit).toHaveCount(0)
+      if (definition.cardType !== 'attack') {
+        await expect(hit).toHaveCount(0)
+        continue
+      }
+      const segments = definition.effects.reduce((total, effect) => (effect.type === 'damage' ? total + effect.times : total), 0)
+      const chance = definition.accuracy ?? 100
+      await expect(hit).toHaveText(segments > 1 ? `每段命中 ${chance}%` : `命中 ${chance}%`)
     }
-    const attack = await findHandCard(page, (card, definition) => !card.disabled && definition.cardType === 'attack')
+    const attack = await findHandCard(page, (card, definition) => {
+      return !card.disabled && definition.cardType === 'attack' && (definition.accuracy ?? 100) >= 100
+    })
     await clickCard(page, attack.instanceId)
     await expect(page.locator('.battle-log')).not.toContainText('失手')
   })
 
   test('打出攻击牌后敌人生命减少', async ({ page }) => {
-    const attack = await findHandCard(page, (card, definition) => !card.disabled && singleStrike(definition) > 0)
+    const attack = await findHandCard(page, (card, definition) => {
+      return !card.disabled && singleStrike(definition) > 0 && (definition.accuracy ?? 100) >= 100
+    })
     const dealt = singleStrike(getCard(attack.definitionId as CardId))
     const before = await stat(page, 'enemy', '生命')
     const block = await stat(page, 'enemy', '护甲')

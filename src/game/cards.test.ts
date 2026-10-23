@@ -17,15 +17,20 @@ const expected: Record<CardId, { name: string; cost: number; text: string }> = {
   returnFlame: { name: '回焰', cost: 0, text: '获得 1 点能量，消耗' },
   gatherFlame: { name: '聚焰', cost: 1, text: '获得 2 点能量' },
   drawBow: { name: '拉弓', cost: 2, text: '下一张攻击牌的基础命中率变为 100%' },
+  emberArrow: { name: '烬矢', cost: 1, text: '造成 10 点伤害' },
+  ruinArrow: { name: '破灭重矢', cost: 2, text: '造成 22 点伤害' },
+  chainArrow: { name: '连珠烬箭', cost: 1, text: '造成 4 点伤害三次' },
+  calibrate: { name: '校准', cost: 0, text: '最终命中率增加 20 个百分点' },
+  riftMark: { name: '裂隙标记', cost: 1, text: '2 回合破绽' },
   scatteredShot: { name: '散矢', cost: 1, text: '造成 5 点伤害' },
   sureEdge: { name: '定锋', cost: 0, text: '必定命中' },
   tripleShot: { name: '三矢', cost: 1, text: '造成 3 点伤害三次' },
 }
 
 describe('卡牌定义', () => {
-  it('包含 12 张不重复的原创卡牌', () => {
-    expect(CARD_IDS).toHaveLength(12)
-    expect(new Set(CARD_IDS).size).toBe(12)
+  it('包含 18 张不重复的原创卡牌', () => {
+    expect(CARD_IDS).toHaveLength(18)
+    expect(new Set(CARD_IDS).size).toBe(18)
     for (const id of CARD_IDS) {
       expect(CARD_DEFINITIONS[id].id).toBe(id)
       expect(CARD_DEFINITIONS[id].name).toBe(expected[id].name)
@@ -35,36 +40,74 @@ describe('卡牌定义', () => {
     }
   })
 
-  it('初始牌组是余烬斩×4、灰盾×4、烬矛突刺×1、回焰×1', () => {
+  it('初始牌组是余烬斩×3、灰盾×3、烬矛突刺×1、回焰×1、拉弓×1、烬矢×1', () => {
     const deck = createStarterDeck()
     const counts = new Map<CardId, number>()
     for (const card of deck) counts.set(card.definitionId, (counts.get(card.definitionId) ?? 0) + 1)
     expect(deck).toHaveLength(10)
-    expect(counts.get('emberSlash')).toBe(4)
-    expect(counts.get('ashShield')).toBe(4)
+    expect(counts.get('emberSlash')).toBe(3)
+    expect(counts.get('ashShield')).toBe(3)
     expect(counts.get('emberSpear')).toBe(1)
     expect(counts.get('returnFlame')).toBe(1)
+    expect(counts.get('drawBow')).toBe(1)
+    expect(counts.get('emberArrow')).toBe(1)
     expect(new Set(deck.map((card) => card.instanceId)).size).toBe(10)
   })
 
-  it('正式卡池没有状态效果', () => {
-    for (const id of CARD_IDS) {
+  it('原有 12 张牌仍没有状态效果，基础命中率保持 100%', () => {
+    const original = [
+      'emberSlash',
+      'towerSmash',
+      'ashFlurry',
+      'heartBurn',
+      'emberSpear',
+      'ashShield',
+      'towerWall',
+      'emberArmor',
+      'gatherAsh',
+      'emberInsight',
+      'returnFlame',
+      'gatherFlame',
+    ] as const satisfies readonly CardId[]
+    expect(original).toHaveLength(12)
+    for (const id of original) {
+      expect(CARD_IDS).toContain(id)
       expect(CARD_DEFINITIONS[id].effects.some((effect) => effect.type === 'applyStatus')).toBe(false)
       expect(CARD_DEFINITIONS[id].accuracy ?? 100).toBe(100)
       expect(CARD_DEFINITIONS[id].cannotMiss ?? false).toBe(false)
     }
   })
 
-  it('拉弓、散矢、定锋和三矢只作规则夹具，不进入奖励池', () => {
+  it('六张新牌进入正式卡池，散矢、定锋和三矢仍只作规则夹具', () => {
     const pool: readonly string[] = CARD_IDS
-    expect(pool).not.toContain('drawBow')
+    expect(pool).toContain('drawBow')
+    expect(pool).toContain('emberArrow')
+    expect(pool).toContain('ruinArrow')
+    expect(pool).toContain('chainArrow')
+    expect(pool).toContain('calibrate')
+    expect(pool).toContain('riftMark')
     expect(pool).not.toContain('scatteredShot')
     expect(pool).not.toContain('sureEdge')
     expect(pool).not.toContain('tripleShot')
+    expect(Object.keys(CARD_DEFINITIONS).sort()).toEqual([...pool, 'scatteredShot', 'sureEdge', 'tripleShot'].sort())
     expect(CARD_DEFINITIONS.drawBow.cardType).toBe('skill')
     expect(CARD_DEFINITIONS.drawBow.effects).toEqual([
       { type: 'setNextAttackAccuracy', accuracy: 100 },
       { type: 'applyStatus', status: 'strength', amount: 1, target: 'self' },
+    ])
+    expect(CARD_DEFINITIONS.emberArrow.accuracy).toBe(75)
+    expect(CARD_DEFINITIONS.emberArrow.effects).toEqual([{ type: 'damage', amount: 10, times: 1 }])
+    expect(CARD_DEFINITIONS.ruinArrow.accuracy).toBe(60)
+    expect(CARD_DEFINITIONS.ruinArrow.effects).toEqual([{ type: 'damage', amount: 22, times: 1 }])
+    expect(CARD_DEFINITIONS.chainArrow.accuracy).toBe(80)
+    expect(CARD_DEFINITIONS.chainArrow.effects).toEqual([{ type: 'damage', amount: 4, times: 3 }])
+    expect(CARD_DEFINITIONS.calibrate.effects).toEqual([
+      { type: 'applyStatus', status: 'aim', amount: 1, target: 'self' },
+      { type: 'exhaust' },
+    ])
+    expect(CARD_DEFINITIONS.riftMark.effects).toEqual([
+      { type: 'applyStatus', status: 'expose', amount: 2, target: 'enemy' },
+      { type: 'draw', count: 1 },
     ])
     expect(CARD_DEFINITIONS.scatteredShot.accuracy).toBe(60)
     expect(CARD_DEFINITIONS.sureEdge.cannotMiss).toBe(true)
